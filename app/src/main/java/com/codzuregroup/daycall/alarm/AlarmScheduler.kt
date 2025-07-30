@@ -7,6 +7,7 @@ import android.content.Intent
 import android.os.Build
 import android.util.Log
 import com.codzuregroup.daycall.data.AlarmEntity
+import com.codzuregroup.daycall.notification.ReminderScheduler
 import java.time.DayOfWeek
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -15,6 +16,7 @@ import java.util.*
 
 class AlarmScheduler(private val context: Context) {
     private val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
+    private val reminderScheduler = ReminderScheduler(context)
 
     fun scheduleAlarm(alarm: AlarmEntity) {
         Log.d("AlarmScheduler", "Scheduling alarm: ${alarm.id}, enabled: ${alarm.enabled}, time: ${alarm.hour}:${alarm.minute}")
@@ -50,6 +52,9 @@ class AlarmScheduler(private val context: Context) {
         } else {
             scheduleOneTimeAlarm(alarm, targetTime)
         }
+        
+        // Schedule reminder notification 15 minutes before alarm
+        reminderScheduler.scheduleReminderNotification(alarm)
     }
 
     private fun scheduleOneTimeAlarm(alarm: AlarmEntity, targetTime: LocalDateTime) {
@@ -178,11 +183,15 @@ class AlarmScheduler(private val context: Context) {
                 }
             }
         }
+        
+        // Cancel reminder notification
+        reminderScheduler.cancelReminderNotification(alarm)
     }
 
     fun cancelAllAlarms() {
         // This would need to be implemented based on your alarm list
         // For now, we'll just cancel known alarms
         Log.d("AlarmScheduler", "Cancelling all alarms")
+        reminderScheduler.cancelAllReminderNotifications()
     }
 } 

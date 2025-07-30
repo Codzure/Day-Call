@@ -41,6 +41,7 @@ import com.codzuregroup.daycall.ui.settings.TimeFormat
 import java.time.DayOfWeek
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,12 +50,9 @@ fun AlarmListScreen(
     onAddAlarm: () -> Unit,
     onEditAlarm: (Long) -> Unit,
     onAlarmRinging: (String) -> Unit,
-    onVibesPressed: () -> Unit = {},
-    onSocialPressed: () -> Unit = {},
-    onSettingsPressed: () -> Unit = {}
+    showBottomNavigation: Boolean = true
 ) {
     val alarms by viewModel.alarms.collectAsState()
-    var selectedTab by remember { mutableStateOf(0) }
     
     val enabledAlarms = alarms.filter { it.enabled }
     val disabledAlarms = alarms.filter { !it.enabled }
@@ -80,18 +78,6 @@ fun AlarmListScreen(
                     modifier = Modifier.size(28.dp)
                 )
             }
-        },
-        bottomBar = {
-            HomeBottomNavigation(
-                selectedTab = selectedTab,
-                onTabSelected = { 
-                    selectedTab = it
-                    when (it) {
-                        1 -> onVibesPressed() // Vibes tab
-                        2 -> onSocialPressed() // Social tab
-                    }
-                }
-            )
         }
     ) { paddingValues ->
         LazyColumn(
@@ -103,9 +89,7 @@ fun AlarmListScreen(
             contentPadding = PaddingValues(bottom = 16.dp)
         ) {
             item {
-                HomeAppBar(
-                    onSettingsClick = onSettingsPressed
-                )
+                HomeAppBar()
                 Spacer(modifier = Modifier.height(16.dp))
                 CurrentTimeCard(alarms = enabledAlarms)
             }
@@ -151,9 +135,7 @@ fun AlarmListScreen(
 }
 
 @Composable
-fun HomeAppBar(
-    onSettingsClick: () -> Unit = {}
-) {
+fun HomeAppBar() {
     var userName by remember { mutableStateOf("User") }
     
     LaunchedEffect(Unit) {
@@ -181,27 +163,12 @@ fun HomeAppBar(
                 color = MaterialTheme.colorScheme.onSurface
             )
         }
-        Row {
-            IconButton(
-                onClick = onSettingsClick,
-                modifier = Modifier
-                    .size(48.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-            ) {
-                Icon(
-                    Icons.Default.Settings,
-                    contentDescription = "Settings",
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
-        }
     }
 }
 
 @Composable
 fun CurrentTimeCard(alarms: List<AlarmEntity>) {
-    val now = LocalTime.now()
+    var currentTime by remember { mutableStateOf(LocalTime.now()) }
     val context = LocalContext.current
     val settingsManager = remember { SettingsManager.getInstance(context) }
     val timeFormat by settingsManager.timeFormat.collectAsStateWithLifecycle()
@@ -213,6 +180,14 @@ fun CurrentTimeCard(alarms: List<AlarmEntity>) {
     }
     val periodFormatter = DateTimeFormatter.ofPattern("a")
     var selectedVibe by remember { mutableStateOf<Vibe?>(null) }
+    
+    // Update time every second
+    LaunchedEffect(Unit) {
+        while (true) {
+            currentTime = LocalTime.now()
+            delay(1000) // Update every second
+        }
+    }
     
     LaunchedEffect(Unit) {
         selectedVibe = VibeManager.getSelectedVibeForAlarm()
@@ -228,9 +203,8 @@ fun CurrentTimeCard(alarms: List<AlarmEntity>) {
     val nextAlarm = alarms.filter { it.enabled }.minByOrNull { it.toLocalTime() }
     
     fun getTimeUntilAlarm(alarmTime: LocalTime): String {
-        val now = LocalTime.now()
-        var hours = alarmTime.hour - now.hour
-        var minutes = alarmTime.minute - now.minute
+        var hours = alarmTime.hour - currentTime.hour
+        var minutes = alarmTime.minute - currentTime.minute
         
         if (minutes < 0) {
             hours -= 1
@@ -268,7 +242,7 @@ fun CurrentTimeCard(alarms: List<AlarmEntity>) {
                     verticalAlignment = Alignment.Bottom
                 ) {
                     Text(
-                        text = now.format(timeFormatter),
+                        text = currentTime.format(timeFormatter),
                         style = MaterialTheme.typography.displayLarge.copy(
                             fontSize = 48.sp,
                             fontWeight = FontWeight.Bold
@@ -278,7 +252,7 @@ fun CurrentTimeCard(alarms: List<AlarmEntity>) {
                     if (timeFormat == TimeFormat.HOUR_12) {
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = now.format(periodFormatter),
+                            text = currentTime.format(periodFormatter),
                             style = MaterialTheme.typography.titleLarge,
                             color = Color.White.copy(alpha = 0.8f),
                             modifier = Modifier.padding(bottom = 8.dp)
@@ -294,19 +268,16 @@ fun CurrentTimeCard(alarms: List<AlarmEntity>) {
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = if (nextAlarm != null) {
-                        "Next: ${nextAlarm.toLocalTime().format(timeFormatter)}" 
-                    } else {
-                        "No upcoming alarms"
-                    },
-                    style = MaterialTheme.typography.titleMedium,
-                    color = Color.White.copy(alpha = 0.9f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
                 
                 if (nextAlarm != null) {
+                    // Show next alarm info
+                    Text(
+                        text = "Next: ${nextAlarm.toLocalTime().format(timeFormatter)}",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = Color.White.copy(alpha = 0.9f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                     Text(
                         text = "in ${getTimeUntilAlarm(nextAlarm.toLocalTime())}",
                         style = MaterialTheme.typography.bodyMedium,
@@ -314,6 +285,24 @@ fun CurrentTimeCard(alarms: List<AlarmEntity>) {
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+                } else {
+                    // Show empty state with current time info
+                    Column {
+                        Text(
+                            text = "Current Time",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = Color.White.copy(alpha = 0.9f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = "No alarms set",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.White.copy(alpha = 0.7f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
             }
         }
@@ -362,7 +351,8 @@ fun HomeBottomNavigation(selectedTab: Int, onTabSelected: (Int) -> Unit) {
         val items = listOf(
             "Alarms" to Icons.Outlined.Alarm,
             "Vibes" to Icons.Outlined.Star,
-            "Social" to Icons.Outlined.People
+            "Social" to Icons.Outlined.People,
+            "Settings" to Icons.Outlined.Settings
         )
 
         items.forEachIndexed { index, item ->
