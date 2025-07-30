@@ -58,6 +58,10 @@ import com.codzuregroup.daycall.data.AlarmEntity
 import com.codzuregroup.daycall.ui.AlarmViewModel
 import com.codzuregroup.daycall.ui.vibes.VibeDefaults
 import com.codzuregroup.daycall.ui.vibes.VibeManager
+import com.codzuregroup.daycall.ui.settings.SettingsManager
+import com.codzuregroup.daycall.ui.settings.TimeFormat
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.launch
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -80,8 +84,17 @@ fun EditAlarmScreen(
     var selectedVibe by remember { mutableStateOf("chill") }
     var isEnabled by remember { mutableStateOf(true) }
     var currentAlarm by remember { mutableStateOf<AlarmEntity?>(null) }
-
-    val timeFormatter = DateTimeFormatter.ofPattern("hh:mm a")
+    
+    val context = LocalContext.current
+    val settingsManager = remember { SettingsManager.getInstance(context) }
+    val timeFormat by settingsManager.timeFormat.collectAsStateWithLifecycle()
+    
+    val timeFormatter = when (timeFormat) {
+        TimeFormat.HOUR_12 -> DateTimeFormatter.ofPattern("hh:mm")
+        TimeFormat.HOUR_24 -> DateTimeFormatter.ofPattern("HH:mm")
+        else -> DateTimeFormatter.ofPattern("hh:mm")
+    }
+    val periodFormatter = DateTimeFormatter.ofPattern("a")
     val selectedTime = LocalTime.of(selectedHour, selectedMinute)
 
     // Load alarm data
@@ -184,12 +197,25 @@ fun EditAlarmScreen(
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Text(
-                            text = selectedTime.format(timeFormatter),
-                            style = MaterialTheme.typography.displayLarge,
-                            fontWeight = FontWeight.Light,
-                            color = Color.Black
-                        )
+                        Row(
+                            verticalAlignment = Alignment.Bottom
+                        ) {
+                            Text(
+                                text = selectedTime.format(timeFormatter),
+                                style = MaterialTheme.typography.displayLarge,
+                                fontWeight = FontWeight.Light,
+                                color = Color.Black
+                            )
+                            if (timeFormat == TimeFormat.HOUR_12) {
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = selectedTime.format(periodFormatter),
+                                    style = MaterialTheme.typography.titleLarge,
+                                    color = Color.Black.copy(alpha = 0.8f),
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                )
+                            }
+                        }
                         
                         Spacer(modifier = Modifier.height(16.dp))
                         
@@ -442,8 +468,22 @@ fun EditAlarmScreen(
             title = { Text("Select Time") },
             text = {
                 Column {
+                    val currentTime = LocalTime.of(selectedHour, selectedMinute)
+                    Text(
+                        text = when (timeFormat) {
+                            TimeFormat.HOUR_12 -> currentTime.format(DateTimeFormatter.ofPattern("hh:mm a"))
+                            TimeFormat.HOUR_24 -> currentTime.format(DateTimeFormatter.ofPattern("HH:mm"))
+                            else -> currentTime.format(DateTimeFormatter.ofPattern("hh:mm a"))
+                        },
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
                     Text("Hour: $selectedHour")
                     Text("Minute: $selectedMinute")
+                    
                     // Simple time picker controls
                     Row {
                         Button(onClick = { selectedHour = (selectedHour + 1) % 24 }) {

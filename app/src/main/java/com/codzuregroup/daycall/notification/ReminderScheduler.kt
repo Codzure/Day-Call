@@ -33,6 +33,7 @@ class ReminderScheduler(private val context: Context) {
             val reminderWork = OneTimeWorkRequestBuilder<ReminderWorker>()
                 .setInputData(inputData)
                 .setInitialDelay(delay.toMillis(), TimeUnit.MILLISECONDS)
+                .addTag("reminder_${alarm.id}")
                 .build()
             
             workManager.enqueue(reminderWork)
@@ -43,8 +44,9 @@ class ReminderScheduler(private val context: Context) {
     }
     
     fun cancelReminderNotification(alarm: AlarmEntity) {
-        val alarmId = alarm.id.toString()
-        workManager.cancelAllWorkByTag(alarmId)
+        val tag = "reminder_${alarm.id}"
+        workManager.cancelAllWorkByTag(tag)
+        Log.d("ReminderScheduler", "Cancelled reminder work with tag: $tag")
     }
     
     fun scheduleAllReminderNotifications(alarms: List<AlarmEntity>) {

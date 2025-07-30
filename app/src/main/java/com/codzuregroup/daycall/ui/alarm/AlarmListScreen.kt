@@ -92,6 +92,8 @@ fun AlarmListScreen(
                 HomeAppBar()
                 Spacer(modifier = Modifier.height(16.dp))
                 CurrentTimeCard(alarms = enabledAlarms)
+                
+
             }
 
             if (alarms.isEmpty()) {
@@ -416,8 +418,19 @@ fun EmptyAlarmState(onAddAlarm: () -> Unit, modifier: Modifier = Modifier) {
 @Composable
 fun RealAlarmItem(alarm: AlarmEntity, onToggle: () -> Unit, onClick: () -> Unit) {
     val time = LocalTime.of(alarm.hour, alarm.minute)
-    val formattedTime = time.format(DateTimeFormatter.ofPattern("hh:mm"))
-    val period = time.format(DateTimeFormatter.ofPattern("a"))
+    val context = LocalContext.current
+    val settingsManager = remember { SettingsManager.getInstance(context) }
+    val timeFormat by settingsManager.timeFormat.collectAsStateWithLifecycle()
+    
+    val timeFormatter = when (timeFormat) {
+        TimeFormat.HOUR_12 -> DateTimeFormatter.ofPattern("hh:mm")
+        TimeFormat.HOUR_24 -> DateTimeFormatter.ofPattern("HH:mm")
+        else -> DateTimeFormatter.ofPattern("hh:mm")
+    }
+    val periodFormatter = DateTimeFormatter.ofPattern("a")
+    
+    val formattedTime = time.format(timeFormatter)
+    val period = time.format(periodFormatter)
     
     DayCallCard(
         modifier = Modifier
@@ -450,12 +463,14 @@ fun RealAlarmItem(alarm: AlarmEntity, onToggle: () -> Unit, onClick: () -> Unit)
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
-                    Text(
-                        text = period,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
-                    )
+                    if (timeFormat == TimeFormat.HOUR_12) {
+                        Text(
+                            text = period,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
+                        )
+                    }
                 }
                 
                 Text(
