@@ -1,6 +1,7 @@
 package com.codzuregroup.daycall.ui.alarm
 
 import androidx.compose.animation.core.*
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -24,11 +25,19 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.codzuregroup.daycall.data.AlarmEntity
 import com.codzuregroup.daycall.ui.AlarmViewModel
 import com.codzuregroup.daycall.ui.components.DayCallCard
 import com.codzuregroup.daycall.ui.components.GradientCard
 import com.codzuregroup.daycall.ui.theme.*
+import com.codzuregroup.daycall.ui.vibes.VibeDefaults
+import com.codzuregroup.daycall.ui.vibes.VibeManager
+import com.codzuregroup.daycall.ui.vibes.Vibe
+import com.codzuregroup.daycall.ui.login.UserManager
+import com.codzuregroup.daycall.ui.settings.SettingsManager
+import com.codzuregroup.daycall.ui.settings.TimeFormat
 import java.time.DayOfWeek
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -40,7 +49,9 @@ fun AlarmListScreen(
     onAddAlarm: () -> Unit,
     onEditAlarm: (Long) -> Unit,
     onAlarmRinging: (String) -> Unit,
-    onVibesPressed: () -> Unit = {}
+    onVibesPressed: () -> Unit = {},
+    onSocialPressed: () -> Unit = {},
+    onSettingsPressed: () -> Unit = {}
 ) {
     val alarms by viewModel.alarms.collectAsState()
     var selectedTab by remember { mutableStateOf(0) }
@@ -75,8 +86,9 @@ fun AlarmListScreen(
                 selectedTab = selectedTab,
                 onTabSelected = { 
                     selectedTab = it
-                    if (it == 1) { // Vibes tab
-                        onVibesPressed()
+                    when (it) {
+                        1 -> onVibesPressed() // Vibes tab
+                        2 -> onSocialPressed() // Social tab
                     }
                 }
             )
@@ -92,9 +104,7 @@ fun AlarmListScreen(
         ) {
             item {
                 HomeAppBar(
-                    name = "Leo",
-                    onProfileClick = { /* Handle profile click */ },
-                    onTestClick = { viewModel.createTestAlarm() }
+                    onSettingsClick = onSettingsPressed
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 CurrentTimeCard(alarms = enabledAlarms)
@@ -141,7 +151,16 @@ fun AlarmListScreen(
 }
 
 @Composable
-fun HomeAppBar(name: String, onProfileClick: () -> Unit, onTestClick: (() -> Unit)? = null) {
+fun HomeAppBar(
+    onSettingsClick: () -> Unit = {}
+) {
+    var userName by remember { mutableStateOf("User") }
+    
+    LaunchedEffect(Unit) {
+        UserManager.getCurrentUser().collect { name ->
+            userName = name ?: "User"
+        }
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -156,28 +175,23 @@ fun HomeAppBar(name: String, onProfileClick: () -> Unit, onTestClick: (() -> Uni
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
-                text = "Hello, $name 👋",
+                text = "Hello, $userName 👋",
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
             )
         }
         Row {
-            if (onTestClick != null) {
-                TextButton(onClick = onTestClick) {
-                    Text("Test", color = MaterialTheme.colorScheme.primary)
-                }
-            }
             IconButton(
-                onClick = onProfileClick,
+                onClick = onSettingsClick,
                 modifier = Modifier
                     .size(48.dp)
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.surfaceVariant)
             ) {
                 Icon(
-                    Icons.Default.Person,
-                    contentDescription = "Profile",
+                    Icons.Default.Settings,
+                    contentDescription = "Settings",
                     tint = MaterialTheme.colorScheme.primary
                 )
             }
@@ -188,17 +202,59 @@ fun HomeAppBar(name: String, onProfileClick: () -> Unit, onTestClick: (() -> Uni
 @Composable
 fun CurrentTimeCard(alarms: List<AlarmEntity>) {
     val now = LocalTime.now()
-    val timeFormatter = DateTimeFormatter.ofPattern("hh:mm")
+    val context = LocalContext.current
+    val settingsManager = remember { SettingsManager.getInstance(context) }
+    val timeFormat by settingsManager.timeFormat.collectAsStateWithLifecycle()
+    
+    val timeFormatter = when (timeFormat) {
+        TimeFormat.HOUR_12 -> DateTimeFormatter.ofPattern("hh:mm")
+        TimeFormat.HOUR_24 -> DateTimeFormatter.ofPattern("HH:mm")
+        else -> DateTimeFormatter.ofPattern("hh:mm")
+    }
     val periodFormatter = DateTimeFormatter.ofPattern("a")
+    var selectedVibe by remember { mutableStateOf<Vibe?>(null) }
+    
+    LaunchedEffect(Unit) {
+        selectedVibe = VibeManager.getSelectedVibeForAlarm()
+    }
+    
+    // React to vibe changes
+    LaunchedEffect(Unit) {
+        VibeManager.selectedVibe.collect { vibe ->
+            selectedVibe = vibe ?: VibeDefaults.availableVibes.first()
+        }
+    }
     
     val nextAlarm = alarms.filter { it.enabled }.minByOrNull { it.toLocalTime() }
+    
+    fun getTimeUntilAlarm(alarmTime: LocalTime): String {
+        val now = LocalTime.now()
+        var hours = alarmTime.hour - now.hour
+        var minutes = alarmTime.minute - now.minute
+        
+        if (minutes < 0) {
+            hours -= 1
+            minutes += 60
+        }
+        if (hours < 0) {
+            hours += 24
+        }
+        
+        return when {
+            hours > 0 -> "${hours}h ${minutes}m"
+            minutes > 0 -> "${minutes}m"
+            else -> "Now"
+        }
+    }
 
     GradientCard(
         modifier = Modifier
             .fillMaxWidth()
             .height(200.dp),
         gradient = Brush.linearGradient(
-            colors = listOf(GradientStart, GradientEnd)
+            colors = selectedVibe?.let { vibe ->
+                listOf(vibe.gradientStart, vibe.gradientEnd)
+            } ?: listOf(GradientStart, GradientEnd)
         )
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
@@ -206,7 +262,7 @@ fun CurrentTimeCard(alarms: List<AlarmEntity>) {
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(24.dp),
-                verticalArrangement = Arrangement.Center
+                verticalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(
                     verticalAlignment = Alignment.Bottom
@@ -219,23 +275,46 @@ fun CurrentTimeCard(alarms: List<AlarmEntity>) {
                         ),
                         color = Color.White
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = now.format(periodFormatter),
-                        style = MaterialTheme.typography.titleLarge,
-                        color = Color.White.copy(alpha = 0.8f),
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
+                    if (timeFormat == TimeFormat.HOUR_12) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = now.format(periodFormatter),
+                            style = MaterialTheme.typography.titleLarge,
+                            color = Color.White.copy(alpha = 0.8f),
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.weight(1f))
+                    selectedVibe?.let { vibe ->
+                        Text(
+                            text = vibe.icon,
+                            fontSize = 24.sp,
+                            color = Color.White.copy(alpha = 0.9f)
+                        )
+                    }
                 }
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = if (nextAlarm != null) {
-                        "Next alarm: ${nextAlarm.toLocalTime().format(timeFormatter)} (in ...)" 
+                        "Next: ${nextAlarm.toLocalTime().format(timeFormatter)}" 
                     } else {
                         "No upcoming alarms"
                     },
                     style = MaterialTheme.typography.titleMedium,
-                    color = Color.White.copy(alpha = 0.9f)
+                    color = Color.White.copy(alpha = 0.9f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
+                
+                if (nextAlarm != null) {
+                    Text(
+                        text = "in ${getTimeUntilAlarm(nextAlarm.toLocalTime())}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.8f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
         }
     }
@@ -283,8 +362,7 @@ fun HomeBottomNavigation(selectedTab: Int, onTabSelected: (Int) -> Unit) {
         val items = listOf(
             "Alarms" to Icons.Outlined.Alarm,
             "Vibes" to Icons.Outlined.Star,
-            "Social" to Icons.Outlined.People,
-            "Profile" to Icons.Outlined.Person
+            "Social" to Icons.Outlined.People
         )
 
         items.forEachIndexed { index, item ->
@@ -397,6 +475,42 @@ fun RealAlarmItem(alarm: AlarmEntity, onToggle: () -> Unit, onClick: () -> Unit)
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+                
+                // Show vibe information
+                val vibe = VibeDefaults.availableVibes.find { it.id == alarm.vibe }
+                if (vibe != null) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(top = 4.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(16.dp)
+                                .background(
+                                    brush = Brush.linearGradient(
+                                        colors = listOf(
+                                            vibe.gradientStart,
+                                            vibe.gradientEnd
+                                        )
+                                    ),
+                                    shape = CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = vibe.icon,
+                                fontSize = 8.sp
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = vibe.name,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
             }
             Switch(
                 checked = alarm.enabled,
@@ -422,6 +536,8 @@ fun formatRepeatDays(repeatDays: Int): String {
     val selectedDays = days.filter { (repeatDays and (1 shl it.ordinal)) != 0 }
     return selectedDays.joinToString(", ") { it.name.substring(0, 3) }
 }
+
+
 
 private fun getGreeting(): String {
     return when (LocalTime.now().hour) {

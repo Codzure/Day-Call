@@ -18,6 +18,7 @@ data class AlarmEntity(
     @ColumnInfo(name = "sound") val sound: String = "Default",
     @ColumnInfo(name = "audio_file") val audioFile: String? = null,
     @ColumnInfo(name = "challenge_type") val challengeType: String = "MATH",
+    @ColumnInfo(name = "vibe") val vibe: String = "chill",
     @ColumnInfo(name = "enabled") val enabled: Boolean = true
 ) {
     fun toLocalTime(): LocalTime = LocalTime.of(hour, minute)

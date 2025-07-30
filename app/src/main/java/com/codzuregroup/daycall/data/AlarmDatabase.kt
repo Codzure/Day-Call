@@ -13,12 +13,13 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
 
 @Database(
-    entities = [AlarmEntity::class],
-    version = 3,
+    entities = [AlarmEntity::class, UserEntity::class],
+    version = 5,
     exportSchema = false
 )
 abstract class AlarmDatabase : RoomDatabase() {
     abstract fun alarmDao(): AlarmDao
+    abstract fun userDao(): UserDao
 
     companion object {
         @Volatile
@@ -52,6 +53,11 @@ abstract class AlarmDatabase : RoomDatabase() {
             // No sample alarms - start with empty database
             // Users will create their own alarms
             Log.d("AlarmDatabase", "Database created successfully - ready for user alarms")
+        }
+        
+        fun clearDatabase(context: Context) {
+            context.deleteDatabase("alarms.db")
+            INSTANCE = null
         }
     }
 } 

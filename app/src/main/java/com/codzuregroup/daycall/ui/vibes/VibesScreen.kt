@@ -75,16 +75,25 @@ fun VibesScreen(
                     ),
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
+                Text(
+                    text = "Your selected vibe will be used as the default for new alarms",
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    ),
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
             }
 
             items(uiState.vibes) { vibe ->
                 VibeCard(
                     vibe = vibe,
                     isSelected = vibe.isSelected,
+                    isDefault = vibe.id == VibeManager.getSelectedVibeId(),
                     onClick = {
                         if (vibe.isUnlocked) {
                             viewModel.handleEvent(VibesEvent.SelectVibe(vibe))
                             onVibeSelected(vibe)
+                            // Navigate back to show effects on alarms screen
                         }
                     }
                 )
@@ -101,6 +110,7 @@ fun VibesScreen(
 fun VibeCard(
     vibe: Vibe,
     isSelected: Boolean,
+    isDefault: Boolean = false,
     onClick: () -> Unit
 ) {
     val scale by animateFloatAsState(
@@ -189,6 +199,14 @@ fun VibeCard(
                         imageVector = Icons.Default.Check,
                         contentDescription = "Selected",
                         tint = Color.White,
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
+                } else if (isDefault) {
+                    Text(
+                        text = "DEFAULT",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White.copy(alpha = 0.8f),
+                        fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(start = 8.dp)
                     )
                 }

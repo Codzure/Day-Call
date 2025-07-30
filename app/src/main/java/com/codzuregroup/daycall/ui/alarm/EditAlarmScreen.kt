@@ -1,6 +1,7 @@
 package com.codzuregroup.daycall.ui.alarm
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,13 +47,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.codzuregroup.daycall.data.AlarmEntity
 import com.codzuregroup.daycall.ui.AlarmViewModel
+import com.codzuregroup.daycall.ui.vibes.VibeDefaults
+import com.codzuregroup.daycall.ui.vibes.VibeManager
 import kotlinx.coroutines.launch
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
@@ -64,8 +69,7 @@ fun EditAlarmScreen(
     viewModel: AlarmViewModel,
     onBackPressed: () -> Unit,
     onSaveAlarm: (AlarmEntity) -> Unit,
-    onDeleteAlarm: (AlarmEntity) -> Unit,
-    onTestSound: (String) -> Unit
+    onDeleteAlarm: (AlarmEntity) -> Unit
 ) {
     var showTimePicker by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -73,6 +77,7 @@ fun EditAlarmScreen(
     var selectedMinute by remember { mutableStateOf(0) }
     var alarmLabel by remember { mutableStateOf("") }
     var selectedSound by remember { mutableStateOf("default_alarm") }
+    var selectedVibe by remember { mutableStateOf("chill") }
     var isEnabled by remember { mutableStateOf(true) }
     var currentAlarm by remember { mutableStateOf<AlarmEntity?>(null) }
 
@@ -88,6 +93,7 @@ fun EditAlarmScreen(
             selectedMinute = alarm.minute
             alarmLabel = alarm.label ?: ""
             selectedSound = alarm.sound
+            selectedVibe = alarm.vibe
             isEnabled = alarm.enabled
         }
     }
@@ -132,6 +138,7 @@ fun EditAlarmScreen(
                                     minute = selectedMinute,
                                     label = alarmLabel.ifEmpty { "Alarm" },
                                     sound = selectedSound,
+                                    vibe = selectedVibe,
                                     enabled = isEnabled
                                 )
                                 onSaveAlarm(updatedAlarm)
@@ -261,21 +268,6 @@ fun EditAlarmScreen(
                                 color = Color.Black
                             )
                         }
-                        
-                        IconButton(
-                            onClick = { onTestSound(selectedSound) },
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFFE3F2FD))
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.PlayArrow,
-                                contentDescription = "Test Sound",
-                                modifier = Modifier.size(16.dp),
-                                tint = Color(0xFF2196F3)
-                            )
-                        }
                     }
                 }
             }
@@ -283,6 +275,105 @@ fun EditAlarmScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             // Vibe selection
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = Color.White
+                ),
+                shape = RoundedCornerShape(12.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Text(
+                        text = "Vibe",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black
+                    )
+                    
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        VibeDefaults.availableVibes.forEach { vibe ->
+                            val isSelected = selectedVibe == vibe.id
+                            Card(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(60.dp)
+                                    .clickable { selectedVibe = vibe.id },
+                                shape = RoundedCornerShape(8.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = Color.Transparent
+                                )
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(
+                                            brush = Brush.linearGradient(
+                                                colors = listOf(
+                                                    vibe.gradientStart,
+                                                    vibe.gradientEnd
+                                                )
+                                            ),
+                                            shape = RoundedCornerShape(8.dp)
+                                        )
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(8.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Center
+                                    ) {
+                                        Text(
+                                            text = vibe.icon,
+                                            fontSize = 16.sp
+                                        )
+                                        Text(
+                                            text = vibe.name,
+                                            style = MaterialTheme.typography.bodySmall.copy(
+                                                fontWeight = FontWeight.Bold
+                                            ),
+                                            color = Color.White
+                                        )
+                                    }
+                                    
+                                    if (isSelected) {
+                                        Box(
+                                            modifier = Modifier
+                                                .align(Alignment.TopEnd)
+                                                .padding(4.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Check,
+                                                contentDescription = "Selected",
+                                                tint = Color.White,
+                                                modifier = Modifier
+                                                    .size(12.dp)
+                                                    .background(
+                                                        Color(0xFF2196F3),
+                                                        CircleShape
+                                                    )
+                                                    .padding(1.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Challenge Type
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
@@ -323,6 +414,7 @@ fun EditAlarmScreen(
                             minute = selectedMinute,
                             label = alarmLabel.ifEmpty { "Alarm" },
                             sound = selectedSound,
+                            vibe = selectedVibe,
                             enabled = isEnabled
                         )
                         onSaveAlarm(updatedAlarm)

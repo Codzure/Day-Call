@@ -12,6 +12,11 @@ class VibesViewModel : ViewModel() {
 
     init {
         loadVibes()
+        // Initialize with currently selected vibe if any
+        val currentVibe = VibeManager.getSelectedVibe()
+        if (currentVibe != null) {
+            selectVibe(currentVibe)
+        }
     }
 
     private fun loadVibes() {
@@ -38,6 +43,9 @@ class VibesViewModel : ViewModel() {
     }
 
     private fun selectVibe(vibe: Vibe) {
+        // Update VibeManager immediately
+        VibeManager.setSelectedVibe(vibe)
+        
         _uiState.update { currentState ->
             val updatedVibes = currentState.vibes.map { existingVibe ->
                 existingVibe.copy(isSelected = existingVibe.id == vibe.id)

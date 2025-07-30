@@ -131,24 +131,5 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
     
-    // Test method - creates an alarm that rings in 1 minute
-    fun createTestAlarm() {
-        viewModelScope.launch {
-            val now = java.time.LocalTime.now()
-            val testTime = now.plusMinutes(1)
-            
-            val testAlarm = com.codzuregroup.daycall.data.AlarmEntity(
-                hour = testTime.hour,
-                minute = testTime.minute,
-                label = "Test Alarm - Should ring in 1 minute",
-                repeatDays = 0, // One-time alarm
-                challengeType = "MATH",
-                audioFile = "labyrinth_for_the_brain_190096.mp3",
-                enabled = true
-            )
-            
-            Log.d("AlarmViewModel", "Creating test alarm for ${testTime.hour}:${testTime.minute}")
-            saveAlarm(testAlarm)
-        }
-    }
+
 }

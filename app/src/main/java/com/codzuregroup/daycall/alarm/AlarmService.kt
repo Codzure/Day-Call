@@ -12,19 +12,32 @@ import androidx.core.app.NotificationCompat
 import com.codzuregroup.daycall.R
 import com.google.android.exoplayer2.ExoPlayer
 import com.google.android.exoplayer2.MediaItem
+import com.codzuregroup.daycall.audio.AudioManager
+import com.codzuregroup.daycall.audio.AudioCategory
 
 class AlarmService : Service() {
     private lateinit var player: ExoPlayer
+    private lateinit var audioManager: AudioManager
 
     override fun onCreate() {
         super.onCreate()
         createChannel()
+        audioManager = AudioManager(this)
         player = ExoPlayer.Builder(this).build().apply {
             repeatMode = ExoPlayer.REPEAT_MODE_ALL
         }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val soundFileName = intent?.getStringExtra("sound_file") ?: "labyrinth_for_the_brain_190096.mp3"
+        val vibeCategory = intent?.getStringExtra("vibe_category")?.let { 
+            AudioCategory.valueOf(it) 
+        } ?: AudioCategory.WAKE_UP
+        
+        // Use AudioManager to play the sound
+        audioManager.playAudio(soundFileName, loop = true)
+        
+        // Also set up ExoPlayer as backup
         val toneUri = intent?.getStringExtra("tone_uri") ?: "asset:///alarm.mp3"
         val mediaItem = MediaItem.fromUri(toneUri)
         player.setMediaItem(mediaItem)
@@ -43,6 +56,7 @@ class AlarmService : Service() {
     }
 
     override fun onDestroy() {
+        audioManager.stopAudio()
         player.release()
         super.onDestroy()
     }
