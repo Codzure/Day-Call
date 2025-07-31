@@ -89,7 +89,7 @@ fun AlarmListScreen(
             contentPadding = PaddingValues(bottom = 16.dp)
         ) {
             item {
-                HomeAppBar()
+                HomeAppBar(viewModel = viewModel)
                 Spacer(modifier = Modifier.height(16.dp))
                 CurrentTimeCard(alarms = enabledAlarms)
                 
@@ -137,7 +137,7 @@ fun AlarmListScreen(
 }
 
 @Composable
-fun HomeAppBar() {
+fun HomeAppBar(viewModel: AlarmViewModel) {
     var userName by remember { mutableStateOf("User") }
     
     LaunchedEffect(Unit) {
@@ -163,6 +163,23 @@ fun HomeAppBar() {
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+        
+        // Test button for debugging
+        IconButton(
+            onClick = { viewModel.testAlarm() },
+            modifier = Modifier
+                .size(40.dp)
+                .background(
+                    MaterialTheme.colorScheme.primaryContainer,
+                    CircleShape
+                )
+        ) {
+            Icon(
+                Icons.Default.Schedule,
+                contentDescription = "Test Alarm",
+                tint = MaterialTheme.colorScheme.onPrimaryContainer
             )
         }
     }
@@ -306,6 +323,32 @@ fun CurrentTimeCard(alarms: List<AlarmEntity>) {
                         )
                     }
                 }
+                
+                // Test notification button for debugging
+                Button(
+                    onClick = {
+                        val notificationManager = com.codzuregroup.daycall.notification.AlarmNotificationManager(context)
+                        val testAlarm = AlarmEntity(
+                            id = 999,
+                            hour = 12,
+                            minute = 0,
+                            label = "Test Alarm",
+                            enabled = true,
+                            repeatDays = 0,
+                            audioFile = "default",
+                            challengeType = "none",
+                            vibe = "chill"
+                        )
+                        notificationManager.showReminderNotification(testAlarm)
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.White.copy(alpha = 0.2f),
+                        contentColor = Color.White
+                    ),
+                    modifier = Modifier.padding(top = 8.dp)
+                ) {
+                    Text("Test Notification", fontSize = 12.sp)
+                }
             }
         }
     }
@@ -353,7 +396,7 @@ fun HomeBottomNavigation(selectedTab: Int, onTabSelected: (Int) -> Unit) {
         val items = listOf(
             "Alarms" to Icons.Outlined.Alarm,
             "Vibes" to Icons.Outlined.Star,
-            "Social" to Icons.Outlined.People,
+            "Todo" to Icons.Outlined.CheckCircle,
             "Settings" to Icons.Outlined.Settings
         )
 
@@ -378,7 +421,7 @@ fun HomeBottomNavigation(selectedTab: Int, onTabSelected: (Int) -> Unit) {
 @Composable
 fun EmptyAlarmState(onAddAlarm: () -> Unit, modifier: Modifier = Modifier) {
     Column(
-        modifier = modifier.padding(vertical = 64.dp),
+        modifier = modifier.padding(vertical = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {

@@ -5,6 +5,12 @@ plugins {
     id("kotlin-kapt")
 }
 
+// Version configuration
+val appVersionCode = 10001
+val appVersionName = "1.0.1"
+val buildNumber = System.getenv("BUILD_NUMBER")?.toIntOrNull() ?: 1
+val gitCommitHash = System.getenv("GIT_COMMIT_HASH") ?: "dev"
+
 android {
     namespace = "com.codzuregroup.daycall"
     compileSdk = 36
@@ -13,31 +19,120 @@ android {
         applicationId = "com.codzuregroup.daycall"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = appVersionCode
+        versionName = appVersionName
+
+        // Build info for debugging
+        buildConfigField("String", "BUILD_NUMBER", "\"$buildNumber\"")
+        buildConfigField("String", "GIT_COMMIT_HASH", "\"$gitCommitHash\"")
+        buildConfigField("String", "BUILD_DATE", "\"${System.currentTimeMillis()}\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
-        release {
+        debug {
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+            isDebuggable = true
             isMinifyEnabled = false
+            isShrinkResources = false
+            
+            // Debug-specific configurations
+            buildConfigField("boolean", "ENABLE_LOGGING", "true")
+            buildConfigField("boolean", "ENABLE_CRASH_REPORTING", "false")
+            buildConfigField("String", "API_BASE_URL", "\"https://api-dev.daycall.com\"")
+        }
+        
+        release {
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            
+            // Release-specific configurations
+            buildConfigField("boolean", "ENABLE_LOGGING", "false")
+            buildConfigField("boolean", "ENABLE_CRASH_REPORTING", "true")
+            buildConfigField("String", "API_BASE_URL", "\"https://api.daycall.com\"")
+        }
+        
+        // Internal testing build
+        create("internal") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".internal"
+            versionNameSuffix = "-internal"
+            isDebuggable = true
+            isMinifyEnabled = false
+            isShrinkResources = false
+            
+            buildConfigField("boolean", "ENABLE_LOGGING", "true")
+            buildConfigField("boolean", "ENABLE_CRASH_REPORTING", "true")
+            buildConfigField("String", "API_BASE_URL", "\"https://api-staging.daycall.com\"")
         }
     }
+    
+    // Product flavors for different distribution channels
+    flavorDimensions += "distribution"
+    
+    productFlavors {
+        create("google") {
+            dimension = "distribution"
+            // Google Play Store specific configurations
+            buildConfigField("String", "DISTRIBUTION_CHANNEL", "\"google\"")
+        }
+        
+        create("samsung") {
+            dimension = "distribution"
+            // Samsung Galaxy Store specific configurations
+            buildConfigField("String", "DISTRIBUTION_CHANNEL", "\"samsung\"")
+        }
+        
+        create("huawei") {
+            dimension = "distribution"
+            // Huawei AppGallery specific configurations
+            buildConfigField("String", "DISTRIBUTION_CHANNEL", "\"huawei\"")
+        }
+    }
+    
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
         isCoreLibraryDesugaringEnabled = true
     }
+    
     kotlinOptions {
         jvmTarget = "11"
     }
+    
     buildFeatures {
         compose = true
+        buildConfig = true
+    }
+    
+    // Bundle configuration for App Bundle optimization
+    bundle {
+        language {
+            enableSplit = true
+        }
+        density {
+            enableSplit = true
+        }
+        abi {
+            enableSplit = true
+        }
+    }
+    
+    // APK naming convention
+    applicationVariants.all {
+        val variant = this
+        variant.outputs
+            .map { it as com.android.build.gradle.internal.api.BaseVariantOutputImpl }
+            .forEach { output ->
+                val outputFileName = "DayCall-${variant.versionName}-${variant.name}-${buildNumber}.apk"
+                output.outputFileName = outputFileName
+            }
     }
 }
 

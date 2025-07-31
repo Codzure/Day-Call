@@ -3,7 +3,7 @@ package com.codzuregroup.daycall.ui.alarm
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.codzuregroup.daycall.data.AlarmDatabase
+import com.codzuregroup.daycall.data.DayCallDatabase
 import com.codzuregroup.daycall.data.AlarmRepository
 import com.codzuregroup.daycall.ui.challenges.ChallengeType
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,7 +34,7 @@ class EditAlarmViewModel(application: Application) : AndroidViewModel(applicatio
     val challengeType: StateFlow<ChallengeType> = _challengeType.asStateFlow()
 
     init {
-        val database = AlarmDatabase.getInstance(application)
+        val database = DayCallDatabase.getInstance(application)
         repository = AlarmRepository(database.alarmDao())
     }
 

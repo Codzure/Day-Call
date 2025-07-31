@@ -62,8 +62,9 @@ class AlarmScheduler(private val context: Context) {
             action = "ALARM_TRIGGER"
             putExtra("ALARM_ID", alarm.id)
             putExtra("ALARM_LABEL", alarm.label)
-            putExtra("AUDIO_FILE", alarm.audioFile)
+            putExtra("SOUND", alarm.sound)
             putExtra("CHALLENGE_TYPE", alarm.challengeType)
+            putExtra("VIBE", alarm.vibe)
         }
 
         val pendingIntent = PendingIntent.getBroadcast(
@@ -78,11 +79,19 @@ class AlarmScheduler(private val context: Context) {
         Log.d("AlarmScheduler", "Setting one-time alarm for ${alarm.label} at ${targetTime}, trigger time: $triggerTime")
         
         try {
-            alarmManager.setExactAndAllowWhileIdle(
-                AlarmManager.RTC_WAKEUP,
-                triggerTime,
-                pendingIntent
-            )
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                alarmManager.setExactAndAllowWhileIdle(
+                    AlarmManager.RTC_WAKEUP,
+                    triggerTime,
+                    pendingIntent
+                )
+            } else {
+                alarmManager.setExact(
+                    AlarmManager.RTC_WAKEUP,
+                    triggerTime,
+                    pendingIntent
+                )
+            }
             Log.d("AlarmScheduler", "Successfully scheduled one-time alarm: ${alarm.id}")
         } catch (e: Exception) {
             Log.e("AlarmScheduler", "Failed to schedule one-time alarm: ${alarm.id}", e)
@@ -100,8 +109,9 @@ class AlarmScheduler(private val context: Context) {
                 action = "ALARM_TRIGGER"
                 putExtra("ALARM_ID", alarm.id)
                 putExtra("ALARM_LABEL", alarm.label)
-                putExtra("AUDIO_FILE", alarm.audioFile)
+                putExtra("SOUND", alarm.sound)
                 putExtra("CHALLENGE_TYPE", alarm.challengeType)
+                putExtra("VIBE", alarm.vibe)
                 putExtra("REPEAT_DAY", dayOfWeek.value)
             }
 
@@ -117,12 +127,19 @@ class AlarmScheduler(private val context: Context) {
             Log.d("AlarmScheduler", "Setting repeating alarm for ${alarm.label} on ${dayOfWeek} at ${nextAlarmTime}, trigger time: $triggerTime")
             
             try {
-                // For repeating alarms, we need to set them individually for each day
-                alarmManager.setExactAndAllowWhileIdle(
-                    AlarmManager.RTC_WAKEUP,
-                    triggerTime,
-                    pendingIntent
-                )
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    alarmManager.setExactAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP,
+                        triggerTime,
+                        pendingIntent
+                    )
+                } else {
+                    alarmManager.setExact(
+                        AlarmManager.RTC_WAKEUP,
+                        triggerTime,
+                        pendingIntent
+                    )
+                }
                 Log.d("AlarmScheduler", "Successfully scheduled repeating alarm: ${alarm.id} for ${dayOfWeek}")
             } catch (e: Exception) {
                 Log.e("AlarmScheduler", "Failed to schedule repeating alarm: ${alarm.id} for ${dayOfWeek}", e)
@@ -193,5 +210,11 @@ class AlarmScheduler(private val context: Context) {
         // For now, we'll just cancel known alarms
         Log.d("AlarmScheduler", "Cancelling all alarms")
         reminderScheduler.cancelAllReminderNotifications()
+    }
+    
+    fun rescheduleAllAlarms() {
+        Log.d("AlarmScheduler", "Rescheduling all alarms")
+        // This would typically be called after boot or when permissions are granted
+        // Implementation would depend on your alarm repository
     }
 } 

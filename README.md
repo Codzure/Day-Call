@@ -1,137 +1,230 @@
-# Day Call - Fully Functional Challenge-Based Alarm App
+# DayCall - Wake with Vibes. Live with Intention.
 
-A modern alarm app that forces users to solve challenges to dismiss their alarms, ensuring they're fully awake before the alarm stops. Now with **full audio integration** and **real alarm scheduling**.
+A modern alarm app that ensures you're fully awake by requiring you to solve challenges before dismissing alarms.
 
-## 🎵 **Audio Integration**
+## 🚀 Features
 
-### **16 High-Quality Alarm Sounds**
-- **Brain Teaser** - Labyrinth for the brain
-- **Sci-Fi Circuits** - Futuristic circuit sounds
-- **Cinematic Whoosh** - Epic transition sounds
-- **Mega Horn** - Powerful cinematic horn
-- **Downfall** - Dramatic orchestral piece
-- **Rainy Day** - Peaceful nature sounds
-- **Dark Future** - Atmospheric sci-fi
-- **Reliable Safe** - Trustworthy tones
-- **Relaxing Guitar** - Calming acoustic
-- **And 7 more unique sounds...**
+- **Persistent Alarms**: Alarms continue until you solve a challenge
+- **Multiple Challenge Types**: Math, QR Scan, Memory Match, Shake, Memory, Pattern, Word, Logic
+- **Smart Volume Escalation**: Volume increases until challenge completion
+- **Vibration Management**: Customizable vibration patterns and intensity
+- **Todo Management**: Full CRUD operations with Room database
+- **Modern UI**: Material 3 design with Jetpack Compose
+- **Multi-Store Support**: Optimized builds for Google Play, Samsung Galaxy Store, Huawei AppGallery
 
-### **Audio Features**
-- **Looping Playback** - Audio continues until challenge solved
-- **Volume Escalation** - Automatically increases every 5 seconds
-- **No Volume Control** - Users cannot reduce volume during challenge
-- **High-Quality Files** - Professional audio from premium sources
+## 📱 Version Information
 
-## 🎯 **Challenge-Based Alarm Dismissal**
+### Current Version
+- **Version Name**: 1.0.0
+- **Version Code**: 10000
+- **Build Number**: 1
+- **Distribution**: google
 
-### **5 Challenge Types**
-1. **Math Problems** - Solve arithmetic problems (addition, subtraction, multiplication, division)
-2. **Memory Challenges** - Remember and repeat number sequences
-3. **Pattern Recognition** - Complete number patterns (Fibonacci, powers of 2, etc.)
-4. **Word Puzzles** - Unscramble morning-related words
-5. **Logic Problems** - Solve logical reasoning questions
+### Build Variants
 
-### **Challenge Features**
-- **Random Generation** - Each challenge is dynamically created
-- **30-Second Timer** - Time pressure adds urgency
-- **New Challenges** - Failed challenges automatically generate new ones
-- **No Easy Way Out** - Must solve to stop alarm
+| Build Type | Distribution | Application ID | Features |
+|------------|--------------|----------------|----------|
+| Debug | Google | com.codzuregroup.daycall.debug | Debug logging, crash reporting disabled |
+| Internal | Google | com.codzuregroup.daycall.internal | Full logging, staging API |
+| Release | Google | com.codzuregroup.daycall | Production optimized |
+| Release | Samsung | com.codzuregroup.daycall | Samsung Galaxy Store optimized |
+| Release | Huawei | com.codzuregroup.daycall | Huawei AppGallery optimized |
 
-## 🔔 **Real Alarm System**
+## 🛠️ Development
 
-### **Android AlarmManager Integration**
-- **Exact Alarm Scheduling** - Precise timing using Android's AlarmManager
-- **Wake Lock Support** - Ensures alarms trigger even when device is sleeping
-- **Repeating Alarms** - Set alarms for specific days of the week
-- **Background Processing** - Alarms work even when app is closed
+### Prerequisites
+- Android Studio Hedgehog or later
+- JDK 11
+- Android SDK 36
+- Kotlin 2.0.21
 
-### **Alarm Features**
-- **Custom Labels** - Name your alarms
-- **Repeat Days** - Set alarms for specific days
-- **Enable/Disable** - Toggle alarms on and off
-- **Audio Selection** - Choose from 16 different alarm sounds
-- **Challenge Types** - Select which type of challenge to solve
-
-## 🎨 **Modern UI**
-
-### **Material You Design**
-- **Dynamic Theming** - Adapts to system colors
-- **Smooth Animations** - Engaging transitions and effects
-- **Gradient Backgrounds** - Beautiful visual design
-- **Responsive Layout** - Works on all screen sizes
-
-### **User Experience**
-- **Intuitive Interface** - Easy to create and manage alarms
-- **Visual Feedback** - Clear indicators for alarm status
-- **Test Functionality** - Try alarms immediately with play button
-- **Modern Cards** - Clean, organized alarm management
-
-## 🛠 **Technical Architecture**
-
-### **Built With**
-- **Jetpack Compose** - Modern UI framework
-- **Material 3** - Latest design system
-- **Room Database** - Persistent alarm storage
-- **Android AlarmManager** - System-level alarm scheduling
-- **MediaPlayer** - High-quality audio playback
-- **Kotlin Coroutines** - Asynchronous operations
-
-### **Key Components**
-- **AlarmScheduler** - Handles system alarm scheduling
-- **AudioManager** - Manages audio playback and volume
-- **AlarmRingingActivity** - Full-screen challenge interface
-- **AlarmReceiver** - Broadcast receiver for alarm triggers
-- **ChallengeGenerator** - Creates random challenges
-
-## 📱 **How It Works**
-
-1. **Create an Alarm** - Set time, label, repeat days, audio file, and challenge type
-2. **Alarm Schedules** - System schedules the alarm using Android's AlarmManager
-3. **Alarm Triggers** - When time comes, AlarmRingingActivity launches
-4. **Audio Plays** - Selected audio file starts looping with increasing volume
-5. **Challenge Appears** - Random challenge must be solved to stop alarm
-6. **Volume Escalates** - Every 5 seconds, volume increases automatically
-7. **Solve to Stop** - Only solving the challenge stops the audio
-8. **Snooze Option** - After solving, snooze button becomes available
-
-## 🚀 **Getting Started**
+### Build Instructions
 
 1. **Clone the repository**
-2. **Open in Android Studio**
-3. **Build and run on your device**
-4. **Create your first alarm** with custom audio and challenge
-5. **Test the system** using the play button on any alarm
-6. **Experience the full alarm** when your scheduled time arrives
+   ```bash
+   git clone https://github.com/your-username/DayCall.git
+   cd DayCall
+   ```
 
-## 🔧 **Permissions Required**
+2. **Build the project**
+   ```bash
+   # Debug build
+   ./gradlew assembleGoogleDebug
+   
+   # Internal testing build
+   ./gradlew assembleGoogleInternal
+   
+   # Release build
+   ./gradlew assembleGoogleRelease
+   
+   # Samsung Galaxy Store build
+   ./gradlew assembleSamsungRelease
+   
+   # Huawei AppGallery build
+   ./gradlew assembleHuaweiRelease
+   ```
 
-- **SCHEDULE_EXACT_ALARM** - For precise alarm scheduling
-- **USE_EXACT_ALARM** - For reliable alarm triggering
-- **WAKE_LOCK** - To wake device for alarms
-- **VIBRATE** - For vibration feedback
+3. **Run tests**
+   ```bash
+   ./gradlew test
+   ./gradlew connectedAndroidTest
+   ```
 
-## 🎮 **Challenge System**
+### Version Management
 
-The app uses a sophisticated challenge generation system that creates:
-- **Math problems** with random operations and numbers
-- **Memory sequences** of 4 random numbers
-- **Pattern challenges** with mathematical sequences
-- **Word scrambles** of morning-related vocabulary
-- **Logic puzzles** requiring critical thinking
+We use semantic versioning (MAJOR.MINOR.PATCH) with automated version management.
 
-All challenges are designed to require active engagement and wake up the user's brain!
+#### Version Bumping
+```bash
+# Bump patch version (1.0.0 -> 1.0.1)
+./scripts/version-manager.kt bump patch
 
-## 🔮 **Future Enhancements**
+# Bump minor version (1.0.0 -> 1.1.0)
+./scripts/version-manager.kt bump minor
 
-- **Shake challenges** using device sensors
-- **Photo challenges** requiring specific actions
-- **Social challenges** with friends
-- **Custom challenge creation**
-- **Challenge difficulty progression**
-- **Achievement system** for successful wake-ups
-- **Spotify integration** for custom music
-- **Weather-based alarms**
+# Bump major version (1.0.0 -> 2.0.0)
+./scripts/version-manager.kt bump major
+
+# Set specific version
+./scripts/version-manager.kt set 1.2.3
+
+# Show current version info
+./scripts/version-manager.kt info
+
+# Generate release notes
+./scripts/version-manager.kt release
+```
+
+#### Version Code Calculation
+- **Formula**: `MAJOR * 10000 + MINOR * 100 + PATCH`
+- **Example**: Version 1.2.3 = Version Code 10203
+
+## 🔄 CI/CD Pipeline
+
+### Automated Workflows
+- **Version Management**: Automatic version bumping on main branch
+- **Multi-Platform Builds**: Parallel builds for all distribution channels
+- **Testing**: Automated unit and integration tests
+- **Release Management**: Automated release creation with release notes
+- **Artifact Management**: APK uploads and version tracking
+
+### Build Triggers
+- **Push to main**: Automatic patch version bump and release
+- **Manual trigger**: Custom version bump and release type selection
+- **Tag push**: Release creation from git tags
+
+## 📊 Build Information
+
+### Environment Variables
+- `BUILD_NUMBER`: GitHub run number
+- `GIT_COMMIT_HASH`: Current git commit hash
+- `DISTRIBUTION_CHANNEL`: Target app store (google/samsung/huawei)
+
+### Build Config Fields
+- `VERSION_NAME`: Semantic version (e.g., "1.0.0")
+- `VERSION_CODE`: Integer version code
+- `BUILD_NUMBER`: Build identifier
+- `GIT_COMMIT_HASH`: Git commit reference
+- `BUILD_DATE`: Build timestamp
+- `DISTRIBUTION_CHANNEL`: Target distribution
+- `API_BASE_URL`: Environment-specific API endpoint
+- `ENABLE_LOGGING`: Debug logging toggle
+- `ENABLE_CRASH_REPORTING`: Crash reporting toggle
+
+## 🏗️ Architecture
+
+### Build Variants
+```
+app/
+├── debug/          # Development builds
+├── internal/       # Internal testing builds
+├── release/        # Production builds
+└── flavors/
+    ├── google/     # Google Play Store
+    ├── samsung/    # Samsung Galaxy Store
+    └── huawei/     # Huawei AppGallery
+```
+
+### Bundle Optimization
+- **Language splits**: Separate APKs for different languages
+- **Density splits**: Optimized for different screen densities
+- **ABI splits**: Architecture-specific optimizations
+
+## 📋 Release Process
+
+### 1. Development
+- Work on feature branches
+- Run tests locally
+- Create pull requests
+
+### 2. Testing
+- Automated CI/CD pipeline runs
+- Internal testing builds
+- Beta testing with internal builds
+
+### 3. Release
+- Merge to main branch
+- Automatic version bump
+- Build generation for all platforms
+- Release creation with notes
+
+### 4. Distribution
+- Google Play Store: `assembleGoogleRelease`
+- Samsung Galaxy Store: `assembleSamsungRelease`
+- Huawei AppGallery: `assembleHuaweiRelease`
+
+## 🔧 Configuration
+
+### Debug Configuration
+- Logging enabled
+- Crash reporting disabled
+- Development API endpoints
+- Debuggable builds
+
+### Release Configuration
+- Logging disabled
+- Crash reporting enabled
+- Production API endpoints
+- Optimized builds with ProGuard
+
+### Internal Configuration
+- Full logging enabled
+- Crash reporting enabled
+- Staging API endpoints
+- Debuggable for testing
+
+## 📈 Version History
+
+See [CHANGELOG.md](CHANGELOG.md) for detailed version history and release notes.
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests
+5. Submit a pull request
+
+### Commit Convention
+- `feat:` New features
+- `fix:` Bug fixes
+- `docs:` Documentation changes
+- `style:` Code style changes
+- `refactor:` Code refactoring
+- `test:` Test additions/changes
+- `chore:` Build/tooling changes
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🆘 Support
+
+- **Issues**: Report bugs via GitHub Issues
+- **Feature Requests**: Submit via GitHub Discussions
+- **Documentation**: See [docs/](docs/) directory
+- **Version Info**: Check Settings > App Information in the app
 
 ---
 
-**Wake with intention. Solve with purpose.** 
+**DayCall** - Making mornings intentional, one challenge at a time. 

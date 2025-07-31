@@ -24,7 +24,7 @@ class ReminderScheduler(private val context: Context) {
         
         if (reminderTime.isAfter(now)) {
             val delay = Duration.between(now, reminderTime)
-            Log.d("ReminderScheduler", "Delay: ${delay.toMinutes()} minutes")
+            Log.d("ReminderScheduler", "Delay: ${delay.toMinutes()} minutes (${delay.toMillis()} ms)")
             
             val inputData = Data.Builder()
                 .putLong("alarm_id", alarm.id.toLong())
@@ -37,9 +37,27 @@ class ReminderScheduler(private val context: Context) {
                 .build()
             
             workManager.enqueue(reminderWork)
-            Log.d("ReminderScheduler", "Reminder scheduled successfully for alarm ${alarm.id}")
+            Log.d("ReminderScheduler", "Reminder scheduled successfully for alarm ${alarm.id} with delay: ${delay.toMinutes()} minutes")
         } else {
             Log.d("ReminderScheduler", "Reminder time has already passed for alarm ${alarm.id}")
+            // For testing, let's schedule a notification for 10 seconds from now
+            if (alarm.enabled) {
+                Log.d("ReminderScheduler", "Scheduling test notification for 10 seconds from now")
+                val testDelay = Duration.ofSeconds(10)
+                
+                val inputData = Data.Builder()
+                    .putLong("alarm_id", alarm.id.toLong())
+                    .build()
+                
+                val testWork = OneTimeWorkRequestBuilder<ReminderWorker>()
+                    .setInputData(inputData)
+                    .setInitialDelay(testDelay.toMillis(), TimeUnit.MILLISECONDS)
+                    .addTag("test_reminder_${alarm.id}")
+                    .build()
+                
+                workManager.enqueue(testWork)
+                Log.d("ReminderScheduler", "Test reminder scheduled for alarm ${alarm.id}")
+            }
         }
     }
     

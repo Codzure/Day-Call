@@ -1,170 +1,96 @@
 package com.codzuregroup.daycall.ui.settings
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.Image
-import com.codzuregroup.daycall.R
+import com.codzuregroup.daycall.BuildConfig
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     onBackPressed: () -> Unit,
-    settingsManager: SettingsManager
+    settingsManager: SettingsManager = SettingsManager.getInstance(LocalContext.current)
 ) {
-    val timeFormat by settingsManager.timeFormat.collectAsStateWithLifecycle()
     val vibrationEnabled by settingsManager.vibrationEnabled.collectAsStateWithLifecycle()
     val vibrationIntensity by settingsManager.vibrationIntensity.collectAsStateWithLifecycle()
+    val soundEnabled by settingsManager.soundEnabled.collectAsStateWithLifecycle()
+    val soundVolume by settingsManager.soundVolume.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text("Settings", fontWeight = FontWeight.Bold) },
+            TopAppBar(
+                title = { Text("Settings") },
                 navigationIcon = {
                     IconButton(onClick = onBackPressed) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Back"
+                        )
                     }
                 }
             )
         }
     ) { paddingValues ->
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            // Background image
-            Image(
-                painter = painterResource(id = R.drawable.bg),
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
-            
-            // Content overlay
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState()),
-                horizontalAlignment = Alignment.CenterHorizontally
+            // Vibration Settings
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
             ) {
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Time Format Section
-            SettingsSection(
-                title = "Time Format",
-                icon = Icons.Default.Schedule
-            ) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
-                    )
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(
-                            text = "Choose your preferred time format",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Vibration",
+                            tint = MaterialTheme.colorScheme.primary
                         )
-                        
-                        Spacer(modifier = Modifier.height(16.dp))
-                        
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceEvenly
-                        ) {
-                            TimeFormatOption(
-                                format = TimeFormat.HOUR_12,
-                                isSelected = timeFormat == TimeFormat.HOUR_12,
-                                onSelect = { settingsManager.setTimeFormat(TimeFormat.HOUR_12) }
-                            )
-                            
-                            TimeFormatOption(
-                                format = TimeFormat.HOUR_24,
-                                isSelected = timeFormat == TimeFormat.HOUR_24,
-                                onSelect = { settingsManager.setTimeFormat(TimeFormat.HOUR_24) }
-                            )
-                        }
+                        Text(
+                            text = "Vibration Settings",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
-                }
-            }
-
-            // Vibration Settings Section
-            SettingsSection(
-                title = "Vibration Settings",
-                icon = Icons.Default.Vibration
-            ) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+                    
+                    Switch(
+                        checked = vibrationEnabled,
+                        onCheckedChange = { settingsManager.setVibrationEnabled(it) },
+                        modifier = Modifier.fillMaxWidth()
                     )
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp)
-                    ) {
-                        // Vibration Toggle
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column {
-                                Text(
-                                    text = "Enable Vibration",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                Text(
-                                    text = "Haptic feedback for alarms and interactions",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                            Switch(
-                                checked = vibrationEnabled,
-                                onCheckedChange = { settingsManager.setVibrationEnabled(it) }
-                            )
-                        }
-                        
-                        if (vibrationEnabled) {
-                            Spacer(modifier = Modifier.height(16.dp))
-                            
-                            // Vibration Intensity
+                    
+                    if (vibrationEnabled) {
+                        Column {
                             Text(
                                 text = "Vibration Intensity",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Medium
+                                style = MaterialTheme.typography.bodyMedium
                             )
-                            
-                            Spacer(modifier = Modifier.height(8.dp))
-                            
                             Slider(
                                 value = vibrationIntensity,
                                 onValueChange = { settingsManager.setVibrationIntensity(it) },
@@ -172,155 +98,140 @@ fun SettingsScreen(
                                 steps = 9,
                                 modifier = Modifier.fillMaxWidth()
                             )
-                            
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = "Light",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Text(
-                                    text = "Strong",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
+                            Text(
+                                text = "Intensity: ${(vibrationIntensity * 100).toInt()}%",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                 }
             }
 
-            // About Section
-            SettingsSection(
-                title = "About",
-                icon = Icons.Default.Info
+            // Sound Settings
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
             ) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
-                    )
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Sound",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
                         Text(
-                            text = "DayCall",
-                            style = MaterialTheme.typography.headlineSmall,
+                            text = "Sound Settings",
+                            style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
-                        
-                        Text(
-                            text = "Wake with vibes. Live with intention.",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        
-                        Spacer(modifier = Modifier.height(8.dp))
-                        
-                        Text(
-                            text = "Version 1.0.0",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                    }
+                    
+                    Switch(
+                        checked = soundEnabled,
+                        onCheckedChange = { settingsManager.setSoundEnabled(it) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    
+                    if (soundEnabled) {
+                        Column {
+                            Text(
+                                text = "Sound Volume",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Slider(
+                                value = soundVolume,
+                                onValueChange = { settingsManager.setSoundVolume(it) },
+                                valueRange = 0f..1f,
+                                steps = 19,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Text(
+                                text = "Volume: ${(soundVolume * 100).toInt()}%",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            // App Information
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = "App Info",
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "App Information",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    
+                    // Version Information
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        InfoRow("Version Name", BuildConfig.VERSION_NAME)
+                        InfoRow("Version Code", BuildConfig.VERSION_CODE.toString())
+                        InfoRow("Build Number", BuildConfig.BUILD_NUMBER)
+                        InfoRow("Build Date", formatBuildDate(BuildConfig.BUILD_DATE))
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-fun SettingsSection(
-    title: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    content: @Composable () -> Unit
-) {
-    Column(
-        modifier = Modifier.fillMaxWidth()
+private fun InfoRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = Color.Black,
-                modifier = Modifier.size(20.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                color = Color.Black
-            )
-        }
-        
-        content()
-        
-        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium
+        )
     }
 }
 
-@Composable
-fun TimeFormatOption(
-    format: TimeFormat,
-    isSelected: Boolean,
-    onSelect: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .width(140.dp)
-            .height(80.dp)
-            .clickable(onClick = onSelect),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) 
-                MaterialTheme.colorScheme.primary 
-            else 
-                MaterialTheme.colorScheme.surfaceVariant
-        )
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = when (format) {
-                    TimeFormat.HOUR_12 -> "12-Hour"
-                    TimeFormat.HOUR_24 -> "24-Hour"
-                },
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Medium,
-                color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
-            )
-            
-            Spacer(modifier = Modifier.height(4.dp))
-            
-            Text(
-                text = when (format) {
-                    TimeFormat.HOUR_12 -> "05:30 AM"
-                    TimeFormat.HOUR_24 -> "05:30"
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = if (isSelected) Color.White.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
+private fun formatBuildDate(timestamp: String): String {
+    return try {
+        val date = java.time.Instant.ofEpochMilli(timestamp.toLong())
+        val formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+        date.atZone(java.time.ZoneId.systemDefault()).format(formatter)
+    } catch (e: Exception) {
+        "Unknown"
     }
 } 

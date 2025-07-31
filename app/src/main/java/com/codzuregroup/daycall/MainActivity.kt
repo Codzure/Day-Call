@@ -3,6 +3,15 @@ package com.codzuregroup.daycall
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import android.app.AlarmManager
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
@@ -46,21 +55,55 @@ import com.codzuregroup.daycall.ui.alarm.AlarmListScreen
 import com.codzuregroup.daycall.ui.alarm.EditAlarmScreen
 import com.codzuregroup.daycall.ui.theme.DayCallTheme
 import com.codzuregroup.daycall.ui.vibes.VibesScreen
-import com.codzuregroup.daycall.ui.social.SocialScreen
+import com.codzuregroup.daycall.ui.todo.TodoScreen
+import com.codzuregroup.daycall.ui.todo.TodoItem
+import com.codzuregroup.daycall.ui.todo.AddTodoScreen
+import com.codzuregroup.daycall.ui.todo.TodoViewModel
+import com.codzuregroup.daycall.ui.todo.TodoEvent
 import com.codzuregroup.daycall.ui.settings.SettingsScreen
 import com.codzuregroup.daycall.ui.settings.SettingsManager
 import com.codzuregroup.daycall.ui.login.LoginScreen
 import com.codzuregroup.daycall.ui.login.UserManager
-import com.codzuregroup.daycall.data.AlarmDatabase
+import com.codzuregroup.daycall.data.DayCallDatabase
 import com.codzuregroup.daycall.ui.vibes.VibeManager
 import com.codzuregroup.daycall.ui.alarm.HomeBottomNavigation
+import com.codzuregroup.daycall.alarm.AlarmService
+import com.codzuregroup.daycall.alarm.AlarmRingingActivity
+import android.app.ActivityManager
+import android.content.Context
 
 class MainActivity : ComponentActivity() {
+    
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            // Permission granted, notifications should work now
+        }
+    }
+    
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
+        // Request notification permission for Android 13+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+        
+        // Check and request exact alarm permission for Android 12+
+        checkExactAlarmPermission()
+        
+        // Check if alarm is currently active
+        checkActiveAlarm()
+        
         UserManager.initialize(this)
-        VibeManager.initializeWithDefault()
+        VibeManager.initialize(this)
         setContent {
             DayCallTheme {
                 Surface(
@@ -70,6 +113,71 @@ class MainActivity : ComponentActivity() {
                     DayCallApp()
                 }
             }
+        }
+    }
+    
+    override fun onResume() {
+        super.onResume()
+        // Check for active alarm when app resumes
+        checkActiveAlarm()
+    }
+    
+    private fun checkExactAlarmPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val alarmManager = getSystemService(AlarmManager::class.java)
+            if (!alarmManager.canScheduleExactAlarms()) {
+                // Show dialog to guide user to settings
+                showExactAlarmPermissionDialog()
+            }
+        }
+    }
+    
+    private fun showExactAlarmPermissionDialog() {
+        // This would typically show a dialog, but for now we'll just log
+        // In a real app, you'd show an AlertDialog here
+        android.util.Log.w("MainActivity", "Exact alarm permission not granted. Please enable in settings.")
+    }
+    
+    fun openAlarmSettings() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                data = Uri.parse("package:$packageName")
+            }
+            startActivity(intent)
+        }
+    }
+    
+    private fun checkActiveAlarm() {
+        // Check if alarm service is running using the companion object
+        if (AlarmService.isAlarmRunning()) {
+            android.util.Log.d("MainActivity", "Alarm service is running, launching challenge screen")
+            
+            // Get stored alarm details
+            val alarmDetails = AlarmService.getCurrentAlarmDetails()
+            
+            // Launch the alarm ringing activity
+            val intent = Intent(this, AlarmRingingActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                
+                if (alarmDetails != null) {
+                    val (alarmId, alarmLabel, alarmSound) = alarmDetails
+                    putExtra("ALARM_ID", alarmId)
+                    putExtra("ALARM_LABEL", alarmLabel)
+                    putExtra("SOUND", alarmSound)
+                    putExtra("CHALLENGE_TYPE", "MATH") // Default challenge type
+                    putExtra("VIBE", "default")
+                } else {
+                    // Fallback values
+                    putExtra("ALARM_ID", -1L)
+                    putExtra("ALARM_LABEL", "Active Alarm")
+                    putExtra("SOUND", "Ascent Braam")
+                    putExtra("CHALLENGE_TYPE", "MATH")
+                    putExtra("VIBE", "default")
+                }
+                
+                action = "ALARM_ACTIVE_ON_APP_OPEN"
+            }
+            startActivity(intent)
         }
     }
 }
@@ -128,6 +236,10 @@ fun DayCallApp() {
                     onAlarmRinging = { alarmLabel ->
                         // Handle alarm ringing - this would typically launch AlarmRingingActivity
                         // For now, we'll just show a message or handle it differently
+                    },
+                    onAddTodo = { currentScreen = Screen.AddTodo },
+                    onEditTodo = { todo ->
+                        currentScreen = Screen.EditTodo(todo)
                     }
                 )
             }
@@ -156,6 +268,27 @@ fun DayCallApp() {
                         viewModel.deleteAlarm(alarm)
                         currentScreen = Screen.Main
                     }
+                )
+            }
+            Screen.AddTodo -> {
+                val todoViewModel: TodoViewModel = viewModel()
+                AddTodoScreen(
+                    onBackPressed = { currentScreen = Screen.Main },
+                    onSaveTodo = { todo ->
+                        todoViewModel.handleEvent(TodoEvent.AddTodo(todo))
+                        currentScreen = Screen.Main
+                    }
+                )
+            }
+            is Screen.EditTodo -> {
+                val todoViewModel: TodoViewModel = viewModel()
+                AddTodoScreen(
+                    onBackPressed = { currentScreen = Screen.Main },
+                    onSaveTodo = { todo ->
+                        todoViewModel.handleEvent(TodoEvent.UpdateTodo(todo))
+                        currentScreen = Screen.Main
+                    },
+                    editingTodo = (currentScreen as Screen.EditTodo).todo
                 )
             }
         }
@@ -250,7 +383,9 @@ fun MainContainer(
     viewModel: AlarmViewModel,
     onAddAlarm: () -> Unit,
     onEditAlarm: (Long) -> Unit,
-    onAlarmRinging: (String) -> Unit
+    onAlarmRinging: (String) -> Unit,
+    onAddTodo: () -> Unit,
+    onEditTodo: (TodoItem) -> Unit
 ) {
     val context = LocalContext.current
     val settingsManager = remember { SettingsManager.getInstance(context) }
@@ -290,9 +425,11 @@ fun MainContainer(
                     )
                 }
                 2 -> {
-                    // Social Tab
-                    SocialScreen(
-                        onBackPressed = { onTabSelected(0) }
+                    // Todo Tab
+                    TodoScreen(
+                        onBackPressed = { onTabSelected(0) },
+                        onNavigateToAddTodo = onAddTodo,
+                        onNavigateToEditTodo = onEditTodo
                     )
                 }
                 3 -> {
@@ -313,4 +450,6 @@ sealed class Screen {
     object Main : Screen()
     object AddAlarm : Screen()
     data class EditAlarm(val alarmId: Long) : Screen()
+    object AddTodo : Screen()
+    data class EditTodo(val todo: TodoItem) : Screen()
 }

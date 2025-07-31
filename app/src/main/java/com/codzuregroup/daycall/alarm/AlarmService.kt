@@ -5,59 +5,168 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Intent
-import com.google.android.exoplayer2.audio.AudioAttributes
 import android.os.Build
 import android.os.IBinder
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.codzuregroup.daycall.R
-import com.google.android.exoplayer2.ExoPlayer
-import com.google.android.exoplayer2.MediaItem
 import com.codzuregroup.daycall.audio.AudioManager
 import com.codzuregroup.daycall.audio.AudioCategory
+import com.codzuregroup.daycall.vibration.VibrationManager
 
 class AlarmService : Service() {
-    private lateinit var player: ExoPlayer
     private lateinit var audioManager: AudioManager
+    private lateinit var vibrationManager: VibrationManager
+    private var isPlaying = false
 
     override fun onCreate() {
         super.onCreate()
         createChannel()
         audioManager = AudioManager(this)
-        player = ExoPlayer.Builder(this).build().apply {
-            repeatMode = ExoPlayer.REPEAT_MODE_ALL
-        }
+        vibrationManager = VibrationManager(this)
+        Log.d("AlarmService", "Service created")
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val soundFileName = intent?.getStringExtra("sound_file") ?: "labyrinth_for_the_brain_190096.mp3"
-        val vibeCategory = intent?.getStringExtra("vibe_category")?.let { 
-            AudioCategory.valueOf(it) 
-        } ?: AudioCategory.WAKE_UP
+        Log.d("AlarmService", "onStartCommand called")
         
-        // Use AudioManager to play the sound
-        audioManager.playAudio(soundFileName, loop = true)
+        val soundFileName = intent?.getStringExtra("sound_file") ?: "Ascent Braam"
+        val vibeCategory = intent?.getStringExtra("vibe_category") ?: "default"
+        val alarmTime = intent?.getStringExtra("alarm_time")
         
-        // Also set up ExoPlayer as backup
-        val toneUri = intent?.getStringExtra("tone_uri") ?: "asset:///alarm.mp3"
-        val mediaItem = MediaItem.fromUri(toneUri)
-        player.setMediaItem(mediaItem)
-        player.prepare()
-        player.play()
-
-        val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
+        // Store alarm details for retrieval
+        val alarmId = intent?.getLongExtra("ALARM_ID", -1) ?: -1
+        val alarmLabel = intent?.getStringExtra("ALARM_LABEL") ?: "Alarm"
+        val challengeType = intent?.getStringExtra("CHALLENGE_TYPE") ?: "MATH"
+        val vibe = intent?.getStringExtra("VIBE") ?: "default"
+        
+        // Store in companion object
+        currentAlarmId = alarmId
+        currentAlarmLabel = alarmLabel
+        currentAlarmSound = soundFileName
+        currentAlarmChallengeType = challengeType
+        currentAlarmVibe = vibe
+        isAlarmActive = true
+        
+        Log.d("AlarmService", "Starting alarm with sound: $soundFileName, vibe: $vibeCategory")
+        
+        try {
+            // Start playing the alarm sound
+            startAlarmSound(soundFileName, vibeCategory)
+            
+            // Create and show notification with alarm details
+            val notification = createNotification(soundFileName, alarmId, alarmLabel, soundFileName, challengeType, vibe)
+            startForeground(ALARM_NOTIFICATION_ID, notification)
+            
+            Log.d("AlarmService", "Alarm service started successfully")
+        } catch (e: Exception) {
+            Log.e("AlarmService", "Failed to start alarm service", e)
+        }
+        
+        return START_NOT_STICKY
+    }
+    
+    private fun startAlarmSound(soundFileName: String, vibeCategory: String) {
+        try {
+            // Stop any existing audio
+            audioManager.stopAudio()
+            
+            // Start playing the alarm sound in a loop
+            audioManager.playAudio(soundFileName, loop = true)
+            isPlaying = true
+            
+            // Start vibration pattern based on vibe
+            startVibration(vibeCategory)
+            
+            Log.d("AlarmService", "Started alarm sound: $soundFileName")
+        } catch (e: Exception) {
+            Log.e("AlarmService", "Failed to start alarm sound", e)
+        }
+    }
+    
+    private fun startVibration(vibeCategory: String) {
+        try {
+            when (vibeCategory.lowercase()) {
+                "chill" -> vibrationManager.vibrateButtonPress()
+                "energetic" -> vibrationManager.vibrateButtonPress()
+                "focused" -> vibrationManager.vibrateButtonPress()
+                "relaxed" -> vibrationManager.vibrateButtonPress()
+                else -> vibrationManager.vibrateButtonPress()
+            }
+            Log.d("AlarmService", "Started vibration for vibe: $vibeCategory")
+        } catch (e: Exception) {
+            Log.e("AlarmService", "Failed to start vibration", e)
+        }
+    }
+    
+    private fun createNotification(
+        soundFileName: String,
+        alarmId: Long,
+        alarmLabel: String,
+        sound: String,
+        challengeType: String,
+        vibe: String
+    ): Notification {
+        // Create intent to launch AlarmRingingActivity when notification is clicked
+        val alarmIntent = Intent(this, AlarmRingingActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            // Pass the alarm details
+            putExtra("ALARM_ID", alarmId)
+            putExtra("ALARM_LABEL", alarmLabel)
+            putExtra("SOUND", sound)
+            putExtra("CHALLENGE_TYPE", challengeType)
+            putExtra("VIBE", vibe)
+            // Add action to distinguish from other intents
+            action = "ALARM_NOTIFICATION_CLICK"
+        }
+        
+        val pendingIntent = android.app.PendingIntent.getActivity(
+            this,
+            ALARM_NOTIFICATION_ID,
+            alarmIntent,
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+        )
+        
+        return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Day Call Alarm")
-            .setContentText("Wake up with vibes!")
+            .setContentText("Tap to solve challenge and stop alarm")
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_ALARM)
+            .setAutoCancel(false)
+            .setContentIntent(pendingIntent)
+            .setFullScreenIntent(pendingIntent, true) // Show as heads-up notification
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setDefaults(NotificationCompat.DEFAULT_ALL)
+            .setVibrate(longArrayOf(0, 500, 200, 500)) // Custom vibration pattern
+            .setLights(0xFF0000FF.toInt(), 1000, 1000) // Blue light
             .build()
-
-        startForeground(1, notification)
-        return START_NOT_STICKY
+    }
+    
+    fun stopAlarm() {
+        try {
+            audioManager.stopAudio()
+            vibrationManager.stopVibration()
+            isPlaying = false
+            
+            // Clear stored alarm details
+            isAlarmActive = false
+            currentAlarmId = -1
+            currentAlarmLabel = ""
+            currentAlarmSound = ""
+            currentAlarmChallengeType = ""
+            currentAlarmVibe = ""
+            
+            Log.d("AlarmService", "Alarm stopped")
+        } catch (e: Exception) {
+            Log.e("AlarmService", "Failed to stop alarm", e)
+        }
     }
 
     override fun onDestroy() {
-        audioManager.stopAudio()
-        player.release()
+        Log.d("AlarmService", "Service destroyed")
+        stopAlarm()
         super.onDestroy()
     }
 
@@ -69,13 +178,44 @@ class AlarmService : Service() {
                 CHANNEL_ID,
                 "Day Call Alarms",
                 NotificationManager.IMPORTANCE_HIGH
-            )
+            ).apply {
+                description = "Alarm notifications for Day Call app"
+                enableLights(true)
+                enableVibration(true)
+                setShowBadge(true)
+            }
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(channel)
+            Log.d("AlarmService", "Notification channel created")
         }
     }
 
     companion object {
         private const val CHANNEL_ID = "day_call_alarm_channel"
+        private const val ALARM_NOTIFICATION_ID = 1001
+        
+        // Store current alarm details for retrieval
+        @Volatile
+        private var currentAlarmId: Long = -1
+        @Volatile
+        private var currentAlarmLabel: String = ""
+        @Volatile
+        private var currentAlarmSound: String = ""
+        @Volatile
+        private var currentAlarmChallengeType: String = ""
+        @Volatile
+        private var currentAlarmVibe: String = ""
+        @Volatile
+        private var isAlarmActive: Boolean = false
+        
+        fun getCurrentAlarmDetails(): Triple<Long, String, String>? {
+            return if (isAlarmActive) {
+                Triple(currentAlarmId, currentAlarmLabel, currentAlarmSound)
+            } else {
+                null
+            }
+        }
+        
+        fun isAlarmRunning(): Boolean = isAlarmActive
     }
 } 

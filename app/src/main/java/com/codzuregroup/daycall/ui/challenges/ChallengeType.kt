@@ -32,7 +32,12 @@ object ChallengeGenerator {
         val challenges = listOf(
             generateMathChallenge(),
             generateQRScanChallenge(),
-            generateMemoryMatchChallenge()
+            generateMemoryMatchChallenge(),
+            generateShakeChallenge(),
+            generateMemoryChallenge(),
+            generatePatternChallenge(),
+            generateWordChallenge(),
+            generateLogicChallenge()
         )
         return challenges.random()
     }
@@ -197,6 +202,17 @@ object ChallengeGenerator {
             correctAnswer = selectedSymbols.joinToString(","),
             difficulty = ChallengeDifficulty.MEDIUM,
             timeLimit = 45
+        )
+    }
+
+    private fun generateShakeChallenge(): Challenge {
+        return Challenge(
+            id = "shake_${System.currentTimeMillis()}",
+            type = ChallengeType.SHAKE,
+            question = "Shake your device to dismiss the alarm",
+            correctAnswer = "Shake",
+            difficulty = ChallengeDifficulty.EASY,
+            timeLimit = 30
         )
     }
 

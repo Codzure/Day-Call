@@ -3,7 +3,7 @@ package com.codzuregroup.daycall.ui.login
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.codzuregroup.daycall.data.AlarmDatabase
+import com.codzuregroup.daycall.data.DayCallDatabase
 import com.codzuregroup.daycall.data.UserRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,7 +25,7 @@ class LoginViewModel(application: Application) : AndroidViewModel(application) {
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
     
     init {
-        val database = AlarmDatabase.getInstance(application)
+        val database = DayCallDatabase.getInstance(application)
         userRepository = UserRepository(database.userDao())
     }
     

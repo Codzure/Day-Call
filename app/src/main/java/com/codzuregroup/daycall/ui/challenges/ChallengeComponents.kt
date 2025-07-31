@@ -13,6 +13,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material.icons.filled.TextFields
+import androidx.compose.material.icons.filled.Timeline
+import androidx.compose.material.icons.filled.Memory
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,6 +27,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlin.random.Random
 
 @Composable
 fun MathChallengeUI(
@@ -91,6 +101,9 @@ fun QRScanChallengeUI(
     showError: Boolean,
     timeRemaining: Int
 ) {
+    var showQRCode by remember { mutableStateOf(false) }
+    val haptic = LocalHapticFeedback.current
+    
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -106,7 +119,7 @@ fun QRScanChallengeUI(
         
         // Instructions
         Text(
-            text = challenge.question,
+            text = "Get out of bed to scan the QR code!",
             style = MaterialTheme.typography.headlineMedium,
             textAlign = TextAlign.Center,
             fontWeight = FontWeight.SemiBold
@@ -115,7 +128,7 @@ fun QRScanChallengeUI(
         Spacer(modifier = Modifier.height(8.dp))
         
         Text(
-            text = "Place the QR code in another room to force yourself out of bed!",
+            text = "The QR code is displayed below. You must physically move to scan it.",
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
             color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -123,12 +136,166 @@ fun QRScanChallengeUI(
         
         Spacer(modifier = Modifier.height(24.dp))
         
-        // QR Scanner Button
+        // QR Code Display
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(200.dp)
-                .clickable { /* TODO: Launch QR scanner */ },
+                .height(200.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant
+            )
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                if (showQRCode) {
+                    // Simple QR code representation
+                    Box(
+                        modifier = Modifier
+                            .size(120.dp)
+                            .background(Color.White, RoundedCornerShape(8.dp))
+                            .border(2.dp, Color.Black, RoundedCornerShape(8.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "QR",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Black
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    Text(
+                        text = "Code: ${challenge.correctAnswer}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.QrCodeScanner,
+                        contentDescription = "QR Scanner",
+                        modifier = Modifier.size(64.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    Text(
+                        text = "Tap to Show QR Code",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Show/Hide QR Code Button
+        Button(
+            onClick = { 
+                showQRCode = !showQRCode
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.secondary
+            )
+        ) {
+            Text(
+                text = if (showQRCode) "Hide QR Code" else "Show QR Code",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium
+            )
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Simulate Scan Button (for testing)
+        Button(
+            onClick = { 
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                onScanSuccess()
+            },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary
+            )
+        ) {
+            Text(
+                text = "Simulate Scan",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium
+            )
+        }
+        
+        if (showError) {
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "Wrong QR code! Try again.",
+                color = Color.Red,
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+@Composable
+fun ShakeChallengeUI(
+    challenge: Challenge,
+    onShakeComplete: () -> Unit,
+    showError: Boolean,
+    timeRemaining: Int
+) {
+    var shakeCount by remember { mutableStateOf(0) }
+    var targetShakes by remember { mutableStateOf(Random.nextInt(5, 11)) }
+    val haptic = LocalHapticFeedback.current
+    
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // Timer
+        Text(
+            text = "Time: ${timeRemaining}s",
+            style = MaterialTheme.typography.bodyLarge,
+            color = if (timeRemaining <= 10) Color.Red else MaterialTheme.colorScheme.onSurface
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Instructions
+        Text(
+            text = "Shake your device to wake up!",
+            style = MaterialTheme.typography.headlineMedium,
+            textAlign = TextAlign.Center,
+            fontWeight = FontWeight.SemiBold
+        )
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        Text(
+            text = "Shake the device vigorously to dismiss the alarm",
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        // Shake Progress
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(120.dp),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceVariant
@@ -142,24 +309,153 @@ fun QRScanChallengeUI(
                 verticalArrangement = Arrangement.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.QrCodeScanner,
-                    contentDescription = "QR Scanner",
-                    modifier = Modifier.size(64.dp),
+                    imageVector = Icons.Default.Psychology,
+                    contentDescription = "Shake",
+                    modifier = Modifier.size(48.dp),
                     tint = MaterialTheme.colorScheme.primary
                 )
                 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 
                 Text(
-                    text = "Tap to Scan QR Code",
+                    text = "$shakeCount / $targetShakes shakes",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Medium
                 )
                 
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                LinearProgressIndicator(
+                    progress = shakeCount.toFloat() / targetShakes.toFloat(),
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Simulate Shake Button (for testing)
+        Button(
+            onClick = { 
+                shakeCount++
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                if (shakeCount >= targetShakes) {
+                    onShakeComplete()
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary
+            )
+        ) {
+            Text(
+                text = "Simulate Shake",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium
+            )
+        }
+        
+        if (showError) {
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "Not enough shakes! Try again.",
+                color = Color.Red,
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+@Composable
+fun MemoryChallengeUI(
+    challenge: Challenge,
+    onMemoryComplete: () -> Unit,
+    showError: Boolean,
+    timeRemaining: Int
+) {
+    var currentStep by remember { mutableStateOf(0) }
+    var userSequence by remember { mutableStateOf("") }
+    var showSequence by remember { mutableStateOf(true) }
+    var sequence by remember { mutableStateOf(challenge.correctAnswer) }
+    val haptic = LocalHapticFeedback.current
+    
+    LaunchedEffect(Unit) {
+        // Show sequence for 3 seconds
+        delay(3000)
+        showSequence = false
+    }
+    
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // Timer
+        Text(
+            text = "Time: ${timeRemaining}s",
+            style = MaterialTheme.typography.bodyLarge,
+            color = if (timeRemaining <= 10) Color.Red else MaterialTheme.colorScheme.onSurface
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        if (showSequence) {
+            // Show sequence
+            Text(
+                text = "Remember this sequence:",
+                style = MaterialTheme.typography.headlineMedium,
+                textAlign = TextAlign.Center,
+                fontWeight = FontWeight.SemiBold
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Text(
+                text = sequence,
+                style = MaterialTheme.typography.displayLarge,
+                textAlign = TextAlign.Center,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+        } else {
+            // Input sequence
+            Text(
+                text = "Enter the sequence:",
+                style = MaterialTheme.typography.headlineMedium,
+                textAlign = TextAlign.Center,
+                fontWeight = FontWeight.SemiBold
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            OutlinedTextField(
+                value = userSequence,
+                onValueChange = { userSequence = it },
+                label = { Text("Sequence") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                shape = RoundedCornerShape(12.dp)
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Button(
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    if (userSequence == sequence) {
+                        onMemoryComplete()
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                )
+            ) {
                 Text(
-                    text = "Expected: ${challenge.correctAnswer}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    text = "Submit",
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium
                 )
             }
         }
@@ -167,7 +463,217 @@ fun QRScanChallengeUI(
         if (showError) {
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "Wrong QR code! Try again.",
+                text = "Wrong sequence! Try again.",
+                color = Color.Red,
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+@Composable
+fun PatternChallengeUI(
+    challenge: Challenge,
+    userAnswer: String,
+    onAnswerChange: (String) -> Unit,
+    onAnswerSubmit: () -> Unit,
+    showError: Boolean,
+    timeRemaining: Int
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // Timer
+        Text(
+            text = "Time: ${timeRemaining}s",
+            style = MaterialTheme.typography.bodyLarge,
+            color = if (timeRemaining <= 10) Color.Red else MaterialTheme.colorScheme.onSurface
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Pattern question
+        Text(
+            text = challenge.question,
+            style = MaterialTheme.typography.headlineMedium,
+            textAlign = TextAlign.Center,
+            fontWeight = FontWeight.SemiBold
+        )
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        // Answer input
+        OutlinedTextField(
+            value = userAnswer,
+            onValueChange = onAnswerChange,
+            label = { Text("Answer") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            shape = RoundedCornerShape(12.dp)
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        Button(
+            onClick = onAnswerSubmit,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary
+            )
+        ) {
+            Text(
+                text = "Submit",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium
+            )
+        }
+        
+        if (showError) {
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "Wrong answer! Try again.",
+                color = Color.Red,
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+@Composable
+fun WordChallengeUI(
+    challenge: Challenge,
+    userAnswer: String,
+    onAnswerChange: (String) -> Unit,
+    onAnswerSubmit: () -> Unit,
+    showError: Boolean,
+    timeRemaining: Int
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // Timer
+        Text(
+            text = "Time: ${timeRemaining}s",
+            style = MaterialTheme.typography.bodyLarge,
+            color = if (timeRemaining <= 10) Color.Red else MaterialTheme.colorScheme.onSurface
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Word question
+        Text(
+            text = challenge.question,
+            style = MaterialTheme.typography.headlineMedium,
+            textAlign = TextAlign.Center,
+            fontWeight = FontWeight.SemiBold
+        )
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        // Answer input
+        OutlinedTextField(
+            value = userAnswer,
+            onValueChange = onAnswerChange,
+            label = { Text("Unscrambled word") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            shape = RoundedCornerShape(12.dp)
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        Button(
+            onClick = onAnswerSubmit,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary
+            )
+        ) {
+            Text(
+                text = "Submit",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium
+            )
+        }
+        
+        if (showError) {
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "Wrong word! Try again.",
+                color = Color.Red,
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+@Composable
+fun LogicChallengeUI(
+    challenge: Challenge,
+    userAnswer: String,
+    onAnswerChange: (String) -> Unit,
+    onAnswerSubmit: () -> Unit,
+    showError: Boolean,
+    timeRemaining: Int
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // Timer
+        Text(
+            text = "Time: ${timeRemaining}s",
+            style = MaterialTheme.typography.bodyLarge,
+            color = if (timeRemaining <= 10) Color.Red else MaterialTheme.colorScheme.onSurface
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        // Logic question
+        Text(
+            text = challenge.question,
+            style = MaterialTheme.typography.headlineMedium,
+            textAlign = TextAlign.Center,
+            fontWeight = FontWeight.SemiBold
+        )
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        // Answer input
+        OutlinedTextField(
+            value = userAnswer,
+            onValueChange = onAnswerChange,
+            label = { Text("Answer") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            shape = RoundedCornerShape(12.dp)
+        )
+        
+        Spacer(modifier = Modifier.height(16.dp))
+        
+        Button(
+            onClick = onAnswerSubmit,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary
+            )
+        ) {
+            Text(
+                text = "Submit",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium
+            )
+        }
+        
+        if (showError) {
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "Wrong answer! Try again.",
                 color = Color.Red,
                 style = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center

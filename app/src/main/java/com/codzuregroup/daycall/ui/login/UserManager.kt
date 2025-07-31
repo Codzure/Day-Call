@@ -1,7 +1,7 @@
 package com.codzuregroup.daycall.ui.login
 
 import android.content.Context
-import com.codzuregroup.daycall.data.AlarmDatabase
+import com.codzuregroup.daycall.data.DayCallDatabase
 import com.codzuregroup.daycall.data.UserRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -12,7 +12,7 @@ object UserManager {
     
     fun initialize(context: Context) {
         if (userRepository == null) {
-            val database = AlarmDatabase.getInstance(context)
+            val database = DayCallDatabase.getInstance(context)
             userRepository = UserRepository(database.userDao())
         }
     }

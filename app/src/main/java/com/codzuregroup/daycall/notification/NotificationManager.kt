@@ -48,6 +48,15 @@ class AlarmNotificationManager(private val context: Context) {
     fun showReminderNotification(alarm: AlarmEntity) {
         Log.d("AlarmNotificationManager", "Showing reminder notification for alarm ${alarm.id}")
         
+        // Check if notifications are enabled
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            if (!notificationManager.areNotificationsEnabled()) {
+                Log.e("AlarmNotificationManager", "Notifications are disabled for the app")
+                return
+            }
+        }
+        
         val notificationId = NOTIFICATION_ID_PREFIX + alarm.id.hashCode()
         
         val intent = Intent(context, MainActivity::class.java).apply {
@@ -70,13 +79,18 @@ class AlarmNotificationManager(private val context: Context) {
             .setContentText("Your alarm \"${alarm.label}\" will ring at $formattedTime")
             .setStyle(NotificationCompat.BigTextStyle()
                 .bigText("Your alarm \"${alarm.label}\" will ring at $formattedTime\n\nTime to start your morning routine! 🌅"))
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
             .build()
         
-        notificationManager.notify(notificationId, notification)
-        Log.d("AlarmNotificationManager", "Notification sent successfully for alarm ${alarm.id}")
+        try {
+            notificationManager.notify(notificationId, notification)
+            Log.d("AlarmNotificationManager", "Notification sent successfully for alarm ${alarm.id}")
+        } catch (e: Exception) {
+            Log.e("AlarmNotificationManager", "Failed to show notification for alarm ${alarm.id}", e)
+        }
     }
     
     fun scheduleReminderNotification(alarm: AlarmEntity) {

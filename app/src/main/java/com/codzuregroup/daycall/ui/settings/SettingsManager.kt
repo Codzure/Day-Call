@@ -14,7 +14,7 @@ enum class TimeFormat {
 class SettingsManager(context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences("daycall_settings", Context.MODE_PRIVATE)
     
-    private val _timeFormat = MutableStateFlow(TimeFormat.HOUR_12)
+    private val _timeFormat = MutableStateFlow(TimeFormat.HOUR_24)
     val timeFormat: StateFlow<TimeFormat> = _timeFormat.asStateFlow()
     
     private val _vibrationEnabled = MutableStateFlow(true)
@@ -23,16 +23,25 @@ class SettingsManager(context: Context) {
     private val _vibrationIntensity = MutableStateFlow(0.7f)
     val vibrationIntensity: StateFlow<Float> = _vibrationIntensity.asStateFlow()
     
+    private val _soundEnabled = MutableStateFlow(true)
+    val soundEnabled: StateFlow<Boolean> = _soundEnabled.asStateFlow()
+    
+    private val _soundVolume = MutableStateFlow(0.8f)
+    val soundVolume: StateFlow<Float> = _soundVolume.asStateFlow()
+    
     init {
         loadSettings()
     }
     
     private fun loadSettings() {
-        val timeFormatValue = prefs.getString("time_format", "HOUR_12") ?: "HOUR_12"
+        val timeFormatValue = prefs.getString("time_format", "HOUR_24") ?: "HOUR_24"
         _timeFormat.value = TimeFormat.valueOf(timeFormatValue)
         
         _vibrationEnabled.value = prefs.getBoolean("vibration_enabled", true)
         _vibrationIntensity.value = prefs.getFloat("vibration_intensity", 0.7f)
+        
+        _soundEnabled.value = prefs.getBoolean("sound_enabled", true)
+        _soundVolume.value = prefs.getFloat("sound_volume", 0.8f)
     }
     
     fun setTimeFormat(format: TimeFormat) {
@@ -48,6 +57,16 @@ class SettingsManager(context: Context) {
     fun setVibrationIntensity(intensity: Float) {
         _vibrationIntensity.value = intensity.coerceIn(0f, 1f)
         prefs.edit().putFloat("vibration_intensity", _vibrationIntensity.value).apply()
+    }
+    
+    fun setSoundEnabled(enabled: Boolean) {
+        _soundEnabled.value = enabled
+        prefs.edit().putBoolean("sound_enabled", enabled).apply()
+    }
+    
+    fun setSoundVolume(volume: Float) {
+        _soundVolume.value = volume.coerceIn(0f, 1f)
+        prefs.edit().putFloat("sound_volume", _soundVolume.value).apply()
     }
     
     companion object {

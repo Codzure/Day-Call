@@ -2,6 +2,7 @@ package com.codzuregroup.daycall.ui.alarm
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -39,11 +40,17 @@ import com.codzuregroup.daycall.ui.challenges.ChallengeType
 import com.codzuregroup.daycall.ui.challenges.MathChallengeUI
 import com.codzuregroup.daycall.ui.challenges.QRScanChallengeUI
 import com.codzuregroup.daycall.ui.challenges.MemoryMatchChallengeUI
+import com.codzuregroup.daycall.ui.challenges.ShakeChallengeUI
+import com.codzuregroup.daycall.ui.challenges.MemoryChallengeUI
+import com.codzuregroup.daycall.ui.challenges.PatternChallengeUI
+import com.codzuregroup.daycall.ui.challenges.WordChallengeUI
+import com.codzuregroup.daycall.ui.challenges.LogicChallengeUI
 import com.codzuregroup.daycall.vibration.VibrationManager
 import com.codzuregroup.daycall.ui.settings.SettingsManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.random.Random
+import android.util.Log
 
 data class ConfettiParticle(
     val id: Int,
@@ -85,7 +92,8 @@ fun AlarmRingingScreen(
     audioFile: String? = null,
     audioManager: AudioManager? = null,
     onDismiss: () -> Unit = {},
-    onSnooze: () -> Unit = {}
+    onSnooze: () -> Unit = {},
+    onChallengeSolved: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val actualAudioManager = audioManager ?: remember { AudioManager(context) }
@@ -96,6 +104,11 @@ fun AlarmRingingScreen(
     var timeRemaining by remember { mutableStateOf(30) }
     var volume by remember { mutableStateOf(0.3f) }
     var showVolumeWarning by remember { mutableStateOf(false) }
+    
+    // New state variables for challenge management
+    var showNewChallengeButton by remember { mutableStateOf(false) }
+    var challengeAttempts by remember { mutableStateOf(0) }
+    var canDismiss by remember { mutableStateOf(false) }
     
     // Feedback states
     var showCorrectFeedback by remember { mutableStateOf(false) }
@@ -154,41 +167,71 @@ fun AlarmRingingScreen(
         }
         if (timeRemaining <= 0 && !isCorrect) {
             showError = true
+            challengeAttempts++
             if (vibrationEnabled) {
                 vibrationManager.vibrateChallengeTimeout()
             }
-            // Generate new challenge after failure
-            delay(2000)
-            currentChallenge = ChallengeGenerator.getRandomChallenge()
-            userAnswer = ""
-            showError = false
-            timeRemaining = 30
+            // Show new challenge button instead of auto-generating
+            showNewChallengeButton = true
         }
     }
 
-    // Volume increase over time
+    // Volume increase over time - more gradual and responsive
     LaunchedEffect(Unit) {
-        while (!isCorrect) {
-            delay(5000) // Increase volume every 5 seconds
-            if (!isCorrect) { // Double check before increasing volume
+        var volumeIncreaseInterval = 3000L // Start with 3 seconds
+        var urgencyLevel = 0
+        
+        while (!canDismiss) {
+            delay(volumeIncreaseInterval)
+            if (!canDismiss) { // Double check before increasing volume
                 actualAudioManager.increaseVolume()
+                urgencyLevel++
+                
+                // Increase urgency and frequency over time
+                if (urgencyLevel >= 5) {
+                    volumeIncreaseInterval = 2000L // Every 2 seconds after 15 seconds
+                }
+                if (urgencyLevel >= 10) {
+                    volumeIncreaseInterval = 1000L // Every 1 second after 25 seconds
+                }
+                if (urgencyLevel >= 15) {
+                    volumeIncreaseInterval = 500L // Every 0.5 seconds after 30 seconds
+                }
+                
                 if (vibrationEnabled) {
                     vibrationManager.vibrateVolumeIncrease()
                 }
+                
+                Log.d("AlarmRingingScreen", "Volume increased - Level: $urgencyLevel, Interval: ${volumeIncreaseInterval}ms")
             }
         }
     }
     
-    // Urgency vibration that increases over time
+    // Urgency vibration that increases over time - more gradual
     LaunchedEffect(Unit) {
         var urgencyLevel = 0
-        while (!isCorrect) {
-            delay(10000) // Increase urgency every 10 seconds
-            if (!isCorrect) {
+        var vibrationInterval = 8000L // Start with 8 seconds
+        
+        while (!canDismiss) {
+            delay(vibrationInterval)
+            if (!canDismiss) {
                 urgencyLevel++
+                
+                // Increase vibration frequency over time
+                if (urgencyLevel >= 3) {
+                    vibrationInterval = 6000L // Every 6 seconds after 24 seconds
+                }
+                if (urgencyLevel >= 6) {
+                    vibrationInterval = 4000L // Every 4 seconds after 36 seconds
+                }
+                if (urgencyLevel >= 9) {
+                    vibrationInterval = 2000L // Every 2 seconds after 48 seconds
+                }
+                
                 if (vibrationEnabled) {
-                    val intensity = (0.5f + (urgencyLevel * 0.1f)).coerceAtMost(1.0f)
+                    val intensity = (0.3f + (urgencyLevel * 0.05f)).coerceAtMost(1.0f)
                     vibrationManager.vibrateAlarmUrgency(intensity)
+                    Log.d("AlarmRingingScreen", "Urgency vibration - Level: $urgencyLevel, Intensity: $intensity")
                 }
             }
         }
@@ -202,8 +245,8 @@ fun AlarmRingingScreen(
     }
 
     // Stop audio when challenge is solved
-    LaunchedEffect(isCorrect) {
-        if (isCorrect) {
+    LaunchedEffect(canDismiss) {
+        if (canDismiss) {
             actualAudioManager.stopAudio()
         }
     }
@@ -248,6 +291,17 @@ fun AlarmRingingScreen(
         }
     }
 
+    // Function to generate new challenge
+    fun generateNewChallenge() {
+        currentChallenge = ChallengeGenerator.getRandomChallenge()
+        userAnswer = ""
+        showError = false
+        // Don't hide the button - keep it visible until challenge is solved
+        // showNewChallengeButton = false
+        timeRemaining = 30
+        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+    }
+    
     // Cleanup when leaving
     DisposableEffect(Unit) {
         onDispose {
@@ -268,6 +322,8 @@ fun AlarmRingingScreen(
                     )
                 )
             )
+            // Prevent clicking outside by making the entire screen clickable
+            .clickable(enabled = false) { }
     ) {
         Column(
             modifier = Modifier
@@ -298,13 +354,14 @@ fun AlarmRingingScreen(
                     Icon(
                         imageVector = if (volume > 0.5f) Icons.Default.VolumeUp else Icons.Default.VolumeOff,
                         contentDescription = null,
-                        tint = Color.White,
+                        tint = if (volume > 0.8f) Color.Red else Color.White,
                         modifier = Modifier.size(20.dp)
                     )
                     Text(
                         text = "Volume: ${(volume * 100).toInt()}%",
-                        color = Color.White,
-                        style = MaterialTheme.typography.bodyMedium
+                        color = if (volume > 0.8f) Color.Red else Color.White,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = if (volume > 0.8f) FontWeight.Bold else FontWeight.Normal
                     )
                 }
                 
@@ -313,7 +370,7 @@ fun AlarmRingingScreen(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(8.dp),
+                        .height(12.dp),
                     colors = CardDefaults.cardColors(
                         containerColor = Color.White.copy(alpha = 0.3f)
                     )
@@ -323,7 +380,7 @@ fun AlarmRingingScreen(
                             .fillMaxSize()
                             .background(
                                 color = Color.White.copy(alpha = 0.2f),
-                                shape = RoundedCornerShape(4.dp)
+                                shape = RoundedCornerShape(6.dp)
                             )
                     ) {
                         Box(
@@ -331,20 +388,24 @@ fun AlarmRingingScreen(
                                 .fillMaxHeight()
                                 .fillMaxWidth(volume)
                                 .background(
-                                    color = Color.Red,
-                                    shape = RoundedCornerShape(4.dp)
+                                    color = if (volume > 0.8f) Color.Red else Color(0xFFFF9800), // Orange color
+                                    shape = RoundedCornerShape(6.dp)
                                 )
                         )
                     }
                 }
                 
-                if (!isCorrect) {
+                if (!canDismiss) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Volume will increase until you solve the challenge!",
-                        color = Color.White.copy(alpha = 0.7f),
+                        text = if (volume > 0.8f) 
+                            "⚠️ URGENT: Volume will keep increasing!" 
+                        else 
+                            "Volume will increase until you solve the challenge!",
+                        color = if (volume > 0.8f) Color.Red else Color.White.copy(alpha = 0.7f),
                         style = MaterialTheme.typography.bodySmall,
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Center,
+                        fontWeight = if (volume > 0.8f) FontWeight.Bold else FontWeight.Normal
                     )
                 }
             }
@@ -399,6 +460,8 @@ fun AlarmRingingScreen(
                                         isCorrect = userAnswer == challenge.correctAnswer
                                         if (isCorrect) {
                                             showCorrectAnswerFeedback()
+                                            canDismiss = true
+                                            onChallengeSolved()
                                             scope.launch {
                                                 delay(500)
                                                 onDismiss()
@@ -421,6 +484,9 @@ fun AlarmRingingScreen(
                                     challenge = challenge,
                                     onScanSuccess = {
                                         showCorrectAnswerFeedback()
+                                        canDismiss = true
+                                        showNewChallengeButton = false
+                                        onChallengeSolved()
                                         scope.launch {
                                             delay(500)
                                             onDismiss()
@@ -435,9 +501,130 @@ fun AlarmRingingScreen(
                                     challenge = challenge,
                                     onMatchComplete = {
                                         showCorrectAnswerFeedback()
+                                        canDismiss = true
+                                        showNewChallengeButton = false
+                                        onChallengeSolved()
                                         scope.launch {
                                             delay(500)
                                             onDismiss()
+                                        }
+                                    },
+                                    showError = showError,
+                                    timeRemaining = timeRemaining
+                                )
+                            }
+                            ChallengeType.SHAKE -> {
+                                ShakeChallengeUI(
+                                    challenge = challenge,
+                                    onShakeComplete = {
+                                        showCorrectAnswerFeedback()
+                                        canDismiss = true
+                                        showNewChallengeButton = false
+                                        onChallengeSolved()
+                                        scope.launch {
+                                            delay(500)
+                                            onDismiss()
+                                        }
+                                    },
+                                    showError = showError,
+                                    timeRemaining = timeRemaining
+                                )
+                            }
+                            ChallengeType.MEMORY -> {
+                                MemoryChallengeUI(
+                                    challenge = challenge,
+                                    onMemoryComplete = {
+                                        showCorrectAnswerFeedback()
+                                        canDismiss = true
+                                        showNewChallengeButton = false
+                                        onChallengeSolved()
+                                        scope.launch {
+                                            delay(500)
+                                            onDismiss()
+                                        }
+                                    },
+                                    showError = showError,
+                                    timeRemaining = timeRemaining
+                                )
+                            }
+                            ChallengeType.PATTERN -> {
+                                PatternChallengeUI(
+                                    challenge = challenge,
+                                    userAnswer = userAnswer,
+                                    onAnswerChange = { userAnswer = it },
+                                    onAnswerSubmit = {
+                                        isCorrect = userAnswer == challenge.correctAnswer
+                                        if (isCorrect) {
+                                            showCorrectAnswerFeedback()
+                                            canDismiss = true
+                                            onChallengeSolved()
+                                            scope.launch {
+                                                delay(500)
+                                                onDismiss()
+                                            }
+                                        } else {
+                                            showIncorrectAnswerFeedback()
+                                            showError = true
+                                            scope.launch {
+                                                delay(1000)
+                                                showError = false
+                                            }
+                                        }
+                                    },
+                                    showError = showError,
+                                    timeRemaining = timeRemaining
+                                )
+                            }
+                            ChallengeType.WORD -> {
+                                WordChallengeUI(
+                                    challenge = challenge,
+                                    userAnswer = userAnswer,
+                                    onAnswerChange = { userAnswer = it },
+                                    onAnswerSubmit = {
+                                        isCorrect = userAnswer == challenge.correctAnswer
+                                        if (isCorrect) {
+                                            showCorrectAnswerFeedback()
+                                            canDismiss = true
+                                            onChallengeSolved()
+                                            scope.launch {
+                                                delay(500)
+                                                onDismiss()
+                                            }
+                                        } else {
+                                            showIncorrectAnswerFeedback()
+                                            showError = true
+                                            scope.launch {
+                                                delay(1000)
+                                                showError = false
+                                            }
+                                        }
+                                    },
+                                    showError = showError,
+                                    timeRemaining = timeRemaining
+                                )
+                            }
+                            ChallengeType.LOGIC -> {
+                                LogicChallengeUI(
+                                    challenge = challenge,
+                                    userAnswer = userAnswer,
+                                    onAnswerChange = { userAnswer = it },
+                                    onAnswerSubmit = {
+                                        isCorrect = userAnswer == challenge.correctAnswer
+                                        if (isCorrect) {
+                                            showCorrectAnswerFeedback()
+                                            canDismiss = true
+                                            onChallengeSolved()
+                                            scope.launch {
+                                                delay(500)
+                                                onDismiss()
+                                            }
+                                        } else {
+                                            showIncorrectAnswerFeedback()
+                                            showError = true
+                                            scope.launch {
+                                                delay(1000)
+                                                showError = false
+                                            }
                                         }
                                     },
                                     showError = showError,
@@ -471,6 +658,8 @@ fun AlarmRingingScreen(
                                                 isCorrect = option == challenge.correctAnswer
                                                 if (isCorrect) {
                                                     showCorrectAnswerFeedback()
+                                                    canDismiss = true
+                                                    onChallengeSolved()
                                                     scope.launch {
                                                         delay(500)
                                                         onDismiss()
@@ -515,6 +704,46 @@ fun AlarmRingingScreen(
                                 textAlign = TextAlign.Center
                             )
                         }
+                        
+                        // New Challenge Button
+                        if (showNewChallengeButton) {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Button(
+                                onClick = { generateNewChallenge() },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.secondary
+                                ),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Refresh,
+                                        contentDescription = "New Challenge",
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Text(
+                                        text = "Try Different Challenge",
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
+                        
+                        // Manual new challenge hint (always visible)
+                        if (!canDismiss) {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = "💡 Tap the refresh button in the top-left corner for a new challenge",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.White.copy(alpha = 0.6f),
+                                textAlign = TextAlign.Center
+                            )
+                        }
                     }
                 }
             }
@@ -523,7 +752,10 @@ fun AlarmRingingScreen(
 
             // Instructions
             Text(
-                text = "Solve the challenge to stop the alarm!\nVolume will keep increasing until you succeed.",
+                text = if (showNewChallengeButton) 
+                    "Time's up! Try a different challenge or solve this one.\nVolume will keep increasing until you succeed."
+                else
+                    "Solve the challenge to stop the alarm!\nVolume will keep increasing until you succeed.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color.White.copy(alpha = 0.8f),
                 textAlign = TextAlign.Center
@@ -556,7 +788,7 @@ fun AlarmRingingScreen(
         }
         
         // Snooze button (small, in corner) - only show when challenge is solved
-        if (isCorrect) {
+        if (canDismiss) {
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
@@ -569,6 +801,26 @@ fun AlarmRingingScreen(
                 ) {
                     Text("Snooze", fontSize = 12.sp)
                 }
+            }
+        }
+        
+        // New Challenge button (small, in top-left corner) - always visible
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(16.dp)
+        ) {
+            FloatingActionButton(
+                onClick = { generateNewChallenge() },
+                containerColor = Color.White.copy(alpha = 0.2f),
+                contentColor = Color.White,
+                modifier = Modifier.size(48.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Refresh,
+                    contentDescription = "New Challenge",
+                    modifier = Modifier.size(20.dp)
+                )
             }
         }
     }

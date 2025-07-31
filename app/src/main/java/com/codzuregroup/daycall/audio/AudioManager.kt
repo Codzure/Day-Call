@@ -103,15 +103,24 @@ class AudioManager(private val context: Context) {
         
         try {
             mediaPlayer = MediaPlayer().apply {
+                // Get the resource ID for the audio file
                 val resourceName = fileName.replace(".mp3", "")
-                val uri = Uri.parse("android.resource://${context.packageName}/raw/$resourceName")
-                setDataSource(context, uri)
+                val resourceId = context.resources.getIdentifier(resourceName, "raw", context.packageName)
+                
+                if (resourceId != 0) {
+                    setDataSource(context, Uri.parse("android.resource://${context.packageName}/raw/$resourceName"))
+                } else {
+                    // Fallback to default audio
+                    val defaultResourceName = getDefaultAudioFile().fileName.replace(".mp3", "")
+                    setDataSource(context, Uri.parse("android.resource://${context.packageName}/raw/$defaultResourceName"))
+                }
+                
                 isLooping = loop
                 setVolume(_volume.value, _volume.value)
                 prepare()
                 start()
                 _isPlaying.value = true
-                Log.d("AudioManager", "Playing audio: ${audioFile.displayName}")
+                Log.d("AudioManager", "Playing audio: ${audioFile.displayName} (loop: $loop)")
             }
         } catch (e: Exception) {
             Log.e("AudioManager", "Failed to play audio: $fileName", e)
@@ -136,8 +145,16 @@ class AudioManager(private val context: Context) {
         try {
             previewPlayer = MediaPlayer().apply {
                 val resourceName = fileName.replace(".mp3", "")
-                val uri = Uri.parse("android.resource://${context.packageName}/raw/$resourceName")
-                setDataSource(context, uri)
+                val resourceId = context.resources.getIdentifier(resourceName, "raw", context.packageName)
+                
+                if (resourceId != 0) {
+                    setDataSource(context, Uri.parse("android.resource://${context.packageName}/raw/$resourceName"))
+                } else {
+                    // Fallback to default audio
+                    val defaultResourceName = getDefaultAudioFile().fileName.replace(".mp3", "")
+                    setDataSource(context, Uri.parse("android.resource://${context.packageName}/raw/$defaultResourceName"))
+                }
+                
                 isLooping = false
                 setVolume(0.5f, 0.5f) // Preview at 50% volume
                 prepare()
@@ -160,7 +177,8 @@ class AudioManager(private val context: Context) {
     private fun playFallbackAudio(loop: Boolean) {
         try {
             mediaPlayer = MediaPlayer().apply {
-                setDataSource(context, Uri.parse("android.resource://${context.packageName}/raw/labyrinth_for_the_brain_190096"))
+                val fallbackResourceName = getDefaultAudioFile().fileName.replace(".mp3", "")
+                setDataSource(context, Uri.parse("android.resource://${context.packageName}/raw/$fallbackResourceName"))
                 isLooping = loop
                 setVolume(_volume.value, _volume.value)
                 prepare()
@@ -177,7 +195,8 @@ class AudioManager(private val context: Context) {
     private fun previewFallbackAudio(durationSeconds: Int) {
         try {
             previewPlayer = MediaPlayer().apply {
-                setDataSource(context, Uri.parse("android.resource://${context.packageName}/raw/labyrinth_for_the_brain_190096"))
+                val fallbackResourceName = getDefaultAudioFile().fileName.replace(".mp3", "")
+                setDataSource(context, Uri.parse("android.resource://${context.packageName}/raw/$fallbackResourceName"))
                 isLooping = false
                 setVolume(0.5f, 0.5f)
                 prepare()

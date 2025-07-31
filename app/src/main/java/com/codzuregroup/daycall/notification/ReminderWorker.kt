@@ -25,7 +25,7 @@ class ReminderWorker(
                 return@withContext Result.failure()
             }
             
-            val database = com.codzuregroup.daycall.data.AlarmDatabase.getInstance(context)
+            val database = com.codzuregroup.daycall.data.DayCallDatabase.getInstance(context)
             val repository = AlarmRepository(database.alarmDao())
             val alarm = repository.getAlarm(alarmId)
             
