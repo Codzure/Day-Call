@@ -16,6 +16,8 @@ import com.codzuregroup.daycall.ui.theme.DayCallTheme
 import android.os.PowerManager
 import android.view.WindowManager
 import android.content.Intent
+import android.content.Context
+import android.net.Uri
 import android.util.Log
 
 class AlarmRingingActivity : ComponentActivity() {
@@ -27,6 +29,9 @@ class AlarmRingingActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         
         Log.d("AlarmRingingActivity", "Activity created")
+        
+        // Request to ignore battery optimizations
+        requestIgnoreBatteryOptimizations()
         
         // Keep screen on and acquire wake lock
         window.addFlags(
@@ -133,5 +138,21 @@ class AlarmRingingActivity : ComponentActivity() {
         Log.d("AlarmRingingActivity", "Activity destroyed")
         stopAlarm()
         releaseWakeLock()
+    }
+    
+    private fun requestIgnoreBatteryOptimizations() {
+        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
+            Log.d("AlarmRingingActivity", "Requesting battery optimization exemption")
+            try {
+                val intent = Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
+                    .setData(Uri.parse("package:$packageName"))
+                startActivity(intent)
+            } catch (e: Exception) {
+                Log.e("AlarmRingingActivity", "Failed to request battery optimization exemption", e)
+            }
+        } else {
+            Log.d("AlarmRingingActivity", "Already ignoring battery optimizations")
+        }
     }
 }

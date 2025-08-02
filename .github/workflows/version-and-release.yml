@@ -1,0 +1,217 @@
+name: Version and Release
+
+on:
+  push:
+    branches: [ main, develop ]
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      version_bump:
+        description: 'Version bump type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      release_type:
+        description: 'Release type'
+        required: true
+        default: 'internal'
+        type: choice
+        options:
+          - internal
+          - beta
+          - release
+
+env:
+  BUILD_NUMBER: ${{ github.run_number }}
+  GIT_COMMIT_HASH: ${{ github.sha }}
+
+jobs:
+  version-check:
+    runs-on: ubuntu-latest
+    outputs:
+      should-bump: ${{ steps.check.outputs.should-bump }}
+      bump-type: ${{ steps.check.outputs.bump-type }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Check for version bump
+        id: check
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "should-bump=true" >> $GITHUB_OUTPUT
+            echo "bump-type=${{ github.event.inputs.version_bump }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "should-bump=true" >> $GITHUB_OUTPUT
+            echo "bump-type=patch" >> $GITHUB_OUTPUT
+          else
+            echo "should-bump=false" >> $GITHUB_OUTPUT
+            echo "bump-type=none" >> $GITHUB_OUTPUT
+          fi
+
+  bump-version:
+    needs: version-check
+    if: needs.version-check.outputs.should-bump == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+      
+      - name: Bump version
+        run: |
+          chmod +x scripts/version-manager.kt
+          ./scripts/version-manager.kt bump ${{ needs.version-check.outputs.bump-type }}
+      
+      - name: Get new version
+        id: version
+        run: |
+          chmod +x scripts/version-manager.kt
+          VERSION_INFO=$(./scripts/version-manager.kt info)
+          VERSION_NAME=$(echo "$VERSION_INFO" | grep "Version Name:" | cut -d' ' -f3)
+          VERSION_CODE=$(echo "$VERSION_INFO" | grep "Version Code:" | cut -d' ' -f3)
+          echo "version-name=$VERSION_NAME" >> $GITHUB_OUTPUT
+          echo "version-code=$VERSION_CODE" >> $GITHUB_OUTPUT
+      
+      - name: Commit version bump
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add .
+          git commit -m "Bump version to ${{ steps.version.outputs.version-name }}"
+          git push
+
+  build:
+    needs: [version-check, bump-version]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        build-type: [debug, internal, release]
+        distribution: [google, samsung, huawei]
+        exclude:
+          - build-type: debug
+            distribution: samsung
+          - build-type: debug
+            distribution: huawei
+          - build-type: internal
+            distribution: samsung
+          - build-type: internal
+            distribution: huawei
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+      
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+      
+      - name: Build APK
+        run: |
+          ./gradlew assemble${matrix.build-type}${matrix.distribution}Debug
+      
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: DayCall-${{ matrix.build-type }}-${{ matrix.distribution }}-${{ env.BUILD_NUMBER }}
+          path: app/build/outputs/apk/${{ matrix.distribution }}/${{ matrix.build-type }}/app-${{ matrix.distribution }}-${{ matrix.build-type }}-debug.apk
+
+  test:
+    runs-on: ubuntu-latest
+    needs: [version-check, bump-version]
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+      
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+      
+      - name: Run tests
+        run: |
+          ./gradlew test
+          ./gradlew connectedAndroidTest
+      
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: app/build/reports/
+
+  release:
+    needs: [build, test]
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download all APKs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: DayCall-*
+          merge-multiple: true
+      
+      - name: Generate release notes
+        run: |
+          chmod +x scripts/version-manager.kt
+          ./scripts/version-manager.kt release
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            DayCall-*.apk
+            RELEASE_NOTES_*.md
+          body_path: RELEASE_NOTES_*.md
+          draft: false
+          prerelease: ${{ github.event_name == 'workflow_dispatch' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  notify:
+    needs: [release]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify team
+        run: |
+          echo "Build completed for DayCall"
+          echo "Version: ${{ needs.release.outputs.version-name }}"
+          echo "Build Number: ${{ env.BUILD_NUMBER }}"
+          # Add your notification logic here (Slack, email, etc.) 
