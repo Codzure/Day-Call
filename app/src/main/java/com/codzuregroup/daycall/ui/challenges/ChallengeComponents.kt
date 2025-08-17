@@ -32,6 +32,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 import kotlin.random.Random
 
 @Composable
@@ -690,13 +691,16 @@ fun MemoryMatchChallengeUI(
     timeRemaining: Int
 ) {
     var selectedCards by remember { mutableStateOf(listOf<Int>()) }
-    var matchedPairs by remember { mutableStateOf(setOf<String>()) }
+    var matchedCards by remember { mutableStateOf(setOf<Int>()) }
     var flippedCards by remember { mutableStateOf(setOf<Int>()) }
+    val scope = rememberCoroutineScope()
     
-    val symbols = challenge.question.split(": ")[1].split(" ")
-    val symbolPairs = symbols.chunked(2).mapIndexed { index, pair ->
-        MemoryCard(index, pair[0], pair[1])
-    }
+    // Extract unique symbols from the challenge
+    val uniqueSymbols = challenge.correctAnswer.split(",")
+    // Create pairs by duplicating each symbol
+    val allCards = uniqueSymbols.flatMap { listOf(it, it) }.mapIndexed { index, symbol ->
+        MemoryCard(index, symbol, "")
+    }.shuffled()
     
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -728,35 +732,39 @@ fun MemoryMatchChallengeUI(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(symbolPairs.size) { index ->
-                val card = symbolPairs[index]
-                val isFlipped = flippedCards.contains(index)
-                val isMatched = matchedPairs.contains(card.symbol1) && matchedPairs.contains(card.symbol2)
+            items(allCards.size) { index ->
+                val card = allCards[index]
+                val isFlipped = flippedCards.contains(index) || matchedCards.contains(index)
+                val isMatched = matchedCards.contains(index)
                 
                 MemoryCardUI(
                     card = card,
                     isFlipped = isFlipped,
                     isMatched = isMatched,
                     onClick = {
-                        if (!isFlipped && !isMatched) {
+                        if (!isFlipped && selectedCards.size < 2) {
                             flippedCards = flippedCards + index
                             selectedCards = selectedCards + index
                             
                             if (selectedCards.size == 2) {
                                 // Check for match
-                                val firstCard = symbolPairs[selectedCards[0]]
-                                val secondCard = symbolPairs[selectedCards[1]]
+                                val firstCardIndex = selectedCards[0]
+                                val secondCardIndex = selectedCards[1]
+                                val firstCard = allCards[firstCardIndex]
+                                val secondCard = allCards[secondCardIndex]
                                 
-                                if (firstCard.symbol1 == secondCard.symbol1 || 
-                                    firstCard.symbol1 == secondCard.symbol2) {
+                                if (firstCard.symbol1 == secondCard.symbol1) {
                                     // Match found
-                                    matchedPairs = matchedPairs + firstCard.symbol1
-                                    if (matchedPairs.size == 4) {
+                                    matchedCards = matchedCards + firstCardIndex + secondCardIndex
+                                    if (matchedCards.size == allCards.size) {
                                         onMatchComplete()
                                     }
                                 } else {
                                     // No match, flip back after delay
-                                    // TODO: Add delay and flip back animation
+                                    scope.launch {
+                                        delay(1000)
+                                        flippedCards = flippedCards - firstCardIndex - secondCardIndex
+                                    }
                                 }
                                 selectedCards = emptyList()
                             }
@@ -804,7 +812,7 @@ fun MemoryCardUI(
         ) {
             if (isFlipped || isMatched) {
                 Text(
-                    text = if (isFlipped) card.symbol1 else card.symbol2,
+                    text = card.symbol1,
                     fontSize = 24.sp
                 )
             } else {

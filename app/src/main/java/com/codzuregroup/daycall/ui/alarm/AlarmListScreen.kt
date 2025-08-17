@@ -3,6 +3,8 @@ package com.codzuregroup.daycall.ui.alarm
 import androidx.compose.animation.core.*
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -40,7 +42,10 @@ import com.codzuregroup.daycall.ui.settings.SettingsManager
 import com.codzuregroup.daycall.ui.settings.TimeFormat
 import java.time.DayOfWeek
 import java.time.LocalTime
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.util.Locale
+import java.time.format.TextStyle
 import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -53,7 +58,7 @@ fun AlarmListScreen(
     showBottomNavigation: Boolean = true
 ) {
     val alarms by viewModel.alarms.collectAsState()
-    
+
     val enabledAlarms = alarms.filter { it.enabled }
     val disabledAlarms = alarms.filter { !it.enabled }
 
@@ -92,7 +97,7 @@ fun AlarmListScreen(
                 HomeAppBar(viewModel = viewModel)
                 Spacer(modifier = Modifier.height(16.dp))
                 CurrentTimeCard(alarms = enabledAlarms)
-                
+
 
             }
 
@@ -117,7 +122,7 @@ fun AlarmListScreen(
                         )
                     }
                 }
-                
+
                 if (disabledAlarms.isNotEmpty()) {
                     item {
                         SectionHeader(title = "Disabled Alarms (${disabledAlarms.size})")
@@ -139,7 +144,7 @@ fun AlarmListScreen(
 @Composable
 fun HomeAppBar(viewModel: AlarmViewModel) {
     var userName by remember { mutableStateOf("User") }
-    
+
     LaunchedEffect(Unit) {
         UserManager.getCurrentUser().collect { name ->
             userName = name ?: "User"
@@ -165,23 +170,6 @@ fun HomeAppBar(viewModel: AlarmViewModel) {
                 color = MaterialTheme.colorScheme.onSurface
             )
         }
-        
-        // Test button for debugging
-        IconButton(
-            onClick = { viewModel.testAlarm() },
-            modifier = Modifier
-                .size(40.dp)
-                .background(
-                    MaterialTheme.colorScheme.primaryContainer,
-                    CircleShape
-                )
-        ) {
-            Icon(
-                Icons.Default.Schedule,
-                contentDescription = "Test Alarm",
-                tint = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-        }
     }
 }
 
@@ -191,7 +179,7 @@ fun CurrentTimeCard(alarms: List<AlarmEntity>) {
     val context = LocalContext.current
     val settingsManager = remember { SettingsManager.getInstance(context) }
     val timeFormat by settingsManager.timeFormat.collectAsStateWithLifecycle()
-    
+
     val timeFormatter = when (timeFormat) {
         TimeFormat.HOUR_12 -> DateTimeFormatter.ofPattern("hh:mm")
         TimeFormat.HOUR_24 -> DateTimeFormatter.ofPattern("HH:mm")
@@ -199,7 +187,7 @@ fun CurrentTimeCard(alarms: List<AlarmEntity>) {
     }
     val periodFormatter = DateTimeFormatter.ofPattern("a")
     var selectedVibe by remember { mutableStateOf<Vibe?>(null) }
-    
+
     // Update time every second
     LaunchedEffect(Unit) {
         while (true) {
@@ -207,24 +195,24 @@ fun CurrentTimeCard(alarms: List<AlarmEntity>) {
             delay(1000) // Update every second
         }
     }
-    
+
     LaunchedEffect(Unit) {
         selectedVibe = VibeManager.getSelectedVibeForAlarm()
     }
-    
+
     // React to vibe changes
     LaunchedEffect(Unit) {
         VibeManager.selectedVibe.collect { vibe ->
             selectedVibe = vibe ?: VibeDefaults.availableVibes.first()
         }
     }
-    
+
     val nextAlarm = alarms.filter { it.enabled }.minByOrNull { it.toLocalTime() }
-    
+
     fun getTimeUntilAlarm(alarmTime: LocalTime): String {
         var hours = alarmTime.hour - currentTime.hour
         var minutes = alarmTime.minute - currentTime.minute
-        
+
         if (minutes < 0) {
             hours -= 1
             minutes += 60
@@ -232,7 +220,7 @@ fun CurrentTimeCard(alarms: List<AlarmEntity>) {
         if (hours < 0) {
             hours += 24
         }
-        
+
         return when {
             hours > 0 -> "${hours}h ${minutes}m"
             minutes > 0 -> "${minutes}m"
@@ -243,7 +231,7 @@ fun CurrentTimeCard(alarms: List<AlarmEntity>) {
     GradientCard(
         modifier = Modifier
             .fillMaxWidth()
-            .height(200.dp),
+            .height(240.dp),
         gradient = Brush.linearGradient(
             colors = selectedVibe?.let { vibe ->
                 listOf(vibe.gradientStart, vibe.gradientEnd)
@@ -254,16 +242,61 @@ fun CurrentTimeCard(alarms: List<AlarmEntity>) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(24.dp),
-                verticalArrangement = Arrangement.SpaceBetween
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.Top
             ) {
+                // Header row: Weekday + date range on left, action icons on right
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        val today = LocalDate.now()
+                        val tomorrow = today.plusDays(1)
+                        val dayName = today.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault())
+                        val monthName = today.month.getDisplayName(TextStyle.FULL, Locale.getDefault())
+                        Text(
+                            text = dayName,
+                            style = MaterialTheme.typography.headlineMedium.copy(
+                                fontWeight = FontWeight.Bold
+                            ),
+                            color = Color.White
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // Day chips row beneath header
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val labels = listOf("M","T","W","T","F","S","S")
+                    val currentDayIndex = LocalDate.now().dayOfWeek.ordinal // 0=Mon..6=Sun
+                    labels.forEachIndexed { index, label ->
+                        val isToday = index == currentDayIndex
+                        val bg = if (isToday) Color.White.copy(alpha = 0.25f) else Color.Transparent
+                        val borderColor = if (isToday) Color.White else Color.White.copy(alpha = 0.5f)
+                        val textColor = if (isToday) Color(0xFF1E1E1E) else Color.White
+                        Box(
+                            modifier = Modifier
+                                .size(22.dp)
+                                .background(bg, CircleShape)
+                                .border(1.dp, borderColor, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(label, color = textColor, style = MaterialTheme.typography.labelSmall)
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
                 Row(
                     verticalAlignment = Alignment.Bottom
                 ) {
                     Text(
                         text = currentTime.format(timeFormatter),
                         style = MaterialTheme.typography.displayLarge.copy(
-                            fontSize = 48.sp,
+                            fontSize = 56.sp,
                             fontWeight = FontWeight.Bold
                         ),
                         color = Color.White
@@ -287,7 +320,7 @@ fun CurrentTimeCard(alarms: List<AlarmEntity>) {
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
-                
+
                 if (nextAlarm != null) {
                     // Show next alarm info
                     Text(
@@ -322,32 +355,6 @@ fun CurrentTimeCard(alarms: List<AlarmEntity>) {
                             overflow = TextOverflow.Ellipsis
                         )
                     }
-                }
-                
-                // Test notification button for debugging
-                Button(
-                    onClick = {
-                        val notificationManager = com.codzuregroup.daycall.notification.AlarmNotificationManager(context)
-                        val testAlarm = AlarmEntity(
-                            id = 999,
-                            hour = 12,
-                            minute = 0,
-                            label = "Test Alarm",
-                            enabled = true,
-                            repeatDays = 0,
-                            audioFile = "default",
-                            challengeType = "none",
-                            vibe = "chill"
-                        )
-                        notificationManager.showReminderNotification(testAlarm)
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.White.copy(alpha = 0.2f),
-                        contentColor = Color.White
-                    ),
-                    modifier = Modifier.padding(top = 8.dp)
-                ) {
-                    Text("Test Notification", fontSize = 12.sp)
                 }
             }
         }
@@ -460,7 +467,7 @@ fun EmptyAlarmState(onAddAlarm: () -> Unit, modifier: Modifier = Modifier) {
 
 @Composable
 fun RealAlarmItem(alarm: AlarmEntity, onToggle: () -> Unit, onClick: () -> Unit) {
-    val time = LocalTime.of(alarm.hour, alarm.minute)
+    val time = alarm.toLocalTime()
     val context = LocalContext.current
     val settingsManager = remember { SettingsManager.getInstance(context) }
     val timeFormat by settingsManager.timeFormat.collectAsStateWithLifecycle()

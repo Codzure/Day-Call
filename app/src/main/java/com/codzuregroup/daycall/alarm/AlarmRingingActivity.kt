@@ -18,11 +18,13 @@ import android.view.WindowManager
 import android.content.Intent
 import android.content.Context
 import android.net.Uri
+import android.os.Build
 import android.util.Log
 
 class AlarmRingingActivity : ComponentActivity() {
     private var audioManager: AudioManager? = null
     private var isChallengeSolved = false
+    private var isTTSSpeaking = false
     private var wakeLock: PowerManager.WakeLock? = null
     
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -33,12 +35,18 @@ class AlarmRingingActivity : ComponentActivity() {
         // Request to ignore battery optimizations
         requestIgnoreBatteryOptimizations()
         
-        // Keep screen on and acquire wake lock
+        // Aggressive flags to ensure alarm shows over lock screen and wakes device
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(true)
+            setTurnScreenOn(true)
+        }
+        
         window.addFlags(
             WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
             WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD or
             WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-            WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+            WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+            WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON
         )
         
         // Acquire wake lock
@@ -47,7 +55,7 @@ class AlarmRingingActivity : ComponentActivity() {
             PowerManager.FULL_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP or PowerManager.ON_AFTER_RELEASE,
             "DayCall:AlarmRingingWakeLock"
         )
-        wakeLock?.acquire()
+        wakeLock?.acquire(10*60*1000L /*10 minutes*/)
         
         // Prevent back navigation until challenge is solved
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
@@ -93,15 +101,23 @@ class AlarmRingingActivity : ComponentActivity() {
                         onChallengeSolved = {
                             Log.d("AlarmRingingActivity", "Challenge solved")
                             isChallengeSolved = true
-                            // Enable back navigation after challenge is solved
+                            // Enable back navigation after challenge is solved AND TTS is not speaking
                             onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
                                 override fun handleOnBackPressed() {
-                                    Log.d("AlarmRingingActivity", "Back pressed after challenge solved")
-                                    stopAlarm()
-                                    releaseWakeLock()
-                                    finish()
+                                    if (isChallengeSolved && !isTTSSpeaking) {
+                                        Log.d("AlarmRingingActivity", "Back pressed after challenge solved and TTS completed")
+                                        stopAlarm()
+                                        releaseWakeLock()
+                                        finish()
+                                    } else {
+                                        Log.d("AlarmRingingActivity", "Back pressed blocked - TTS still speaking")
+                                    }
                                 }
                             })
+                        },
+                        onTTSStateChanged = { speaking ->
+                            Log.d("AlarmRingingActivity", "TTS state changed: $speaking")
+                            isTTSSpeaking = speaking
                         }
                     )
                 }

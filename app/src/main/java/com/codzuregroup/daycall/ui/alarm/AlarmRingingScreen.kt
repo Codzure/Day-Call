@@ -46,6 +46,7 @@ import com.codzuregroup.daycall.ui.challenges.PatternChallengeUI
 import com.codzuregroup.daycall.ui.challenges.WordChallengeUI
 import com.codzuregroup.daycall.ui.challenges.LogicChallengeUI
 import com.codzuregroup.daycall.vibration.VibrationManager
+import com.codzuregroup.daycall.audio.TextToSpeechManager
 import com.codzuregroup.daycall.ui.settings.SettingsManager
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -93,7 +94,8 @@ fun AlarmRingingScreen(
     audioManager: AudioManager? = null,
     onDismiss: () -> Unit = {},
     onSnooze: () -> Unit = {},
-    onChallengeSolved: () -> Unit = {}
+    onChallengeSolved: () -> Unit = {},
+    onTTSStateChanged: ((Boolean) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val actualAudioManager = audioManager ?: remember { AudioManager(context) }
@@ -109,6 +111,7 @@ fun AlarmRingingScreen(
     var showNewChallengeButton by remember { mutableStateOf(false) }
     var challengeAttempts by remember { mutableStateOf(0) }
     var canDismiss by remember { mutableStateOf(false) }
+    var isTTSSpeaking by remember { mutableStateOf(false) }
     
     // Feedback states
     var showCorrectFeedback by remember { mutableStateOf(false) }
@@ -122,6 +125,7 @@ fun AlarmRingingScreen(
     val vibrationEnabled by settingsManager.vibrationEnabled.collectAsStateWithLifecycle()
     val vibrationIntensity by settingsManager.vibrationIntensity.collectAsStateWithLifecycle()
     
+    val textToSpeechManager = remember { TextToSpeechManager(context) }
     val scope = rememberCoroutineScope()
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
     val scale by infiniteTransition.animateFloat(
@@ -252,20 +256,31 @@ fun AlarmRingingScreen(
     }
     
     // Feedback functions
-    fun showCorrectAnswerFeedback() {
+    fun showCorrectAnswerFeedback(onComplete: (() -> Unit)? = null) {
         showCorrectFeedback = true
         confettiParticles = createConfettiParticles()
+        isTTSSpeaking = true
+        onTTSStateChanged?.invoke(true)
+        
+        // Speak celebration message and wait for completion
+        val userName = settingsManager.userName.value
+        textToSpeechManager.speakCelebration(userName) {
+            // TTS completed, now we can proceed with dismissal
+            isTTSSpeaking = false
+            onTTSStateChanged?.invoke(false)
+            scope.launch {
+                // Keep confetti visible for a bit longer after TTS completes
+                delay(1000)
+                showCorrectFeedback = false
+                confettiParticles = emptyList()
+                onComplete?.invoke()
+            }
+        }
         
         if (vibrationEnabled) {
             vibrationManager.vibrateCorrectAnswer()
         } else {
             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-        }
-        
-        scope.launch {
-            delay(2000)
-            showCorrectFeedback = false
-            confettiParticles = emptyList()
         }
     }
     
@@ -307,6 +322,8 @@ fun AlarmRingingScreen(
         onDispose {
             actualAudioManager.stopAudio()
             vibrationManager.stopVibration()
+            textToSpeechManager.stop()
+            onTTSStateChanged?.invoke(false)
         }
     }
 
@@ -340,6 +357,47 @@ fun AlarmRingingScreen(
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center
             )
+
+            // TTS Speaking Indicator
+            if (isTTSSpeaking) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = Color(0xFF4CAF50).copy(alpha = 0.9f)
+                    ),
+                    shape = RoundedCornerShape(20.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Animated speaking icon
+                        val speakingScale by infiniteTransition.animateFloat(
+                            initialValue = 1f,
+                            targetValue = 1.2f,
+                            animationSpec = infiniteRepeatable(
+                                animation = tween(500, easing = EaseInOut),
+                                repeatMode = RepeatMode.Reverse
+                            ),
+                            label = "speaking_scale"
+                        )
+                        
+                        Text(
+                            text = "🔊",
+                            fontSize = 16.sp,
+                            modifier = Modifier.scale(speakingScale)
+                        )
+                        
+                        Text(
+                            text = "Speaking celebration message...",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Color.White,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
 
             Spacer(modifier = Modifier.height(32.dp))
 
@@ -459,11 +517,9 @@ fun AlarmRingingScreen(
                                     onAnswerSubmit = {
                                         isCorrect = userAnswer == challenge.correctAnswer
                                         if (isCorrect) {
-                                            showCorrectAnswerFeedback()
                                             canDismiss = true
                                             onChallengeSolved()
-                                            scope.launch {
-                                                delay(500)
+                                            showCorrectAnswerFeedback {
                                                 onDismiss()
                                             }
                                         } else {
@@ -483,12 +539,10 @@ fun AlarmRingingScreen(
                                 QRScanChallengeUI(
                                     challenge = challenge,
                                     onScanSuccess = {
-                                        showCorrectAnswerFeedback()
                                         canDismiss = true
                                         showNewChallengeButton = false
                                         onChallengeSolved()
-                                        scope.launch {
-                                            delay(500)
+                                        showCorrectAnswerFeedback {
                                             onDismiss()
                                         }
                                     },
@@ -500,12 +554,10 @@ fun AlarmRingingScreen(
                                 MemoryMatchChallengeUI(
                                     challenge = challenge,
                                     onMatchComplete = {
-                                        showCorrectAnswerFeedback()
                                         canDismiss = true
                                         showNewChallengeButton = false
                                         onChallengeSolved()
-                                        scope.launch {
-                                            delay(500)
+                                        showCorrectAnswerFeedback {
                                             onDismiss()
                                         }
                                     },
@@ -517,12 +569,10 @@ fun AlarmRingingScreen(
                                 ShakeChallengeUI(
                                     challenge = challenge,
                                     onShakeComplete = {
-                                        showCorrectAnswerFeedback()
                                         canDismiss = true
                                         showNewChallengeButton = false
                                         onChallengeSolved()
-                                        scope.launch {
-                                            delay(500)
+                                        showCorrectAnswerFeedback {
                                             onDismiss()
                                         }
                                     },
@@ -534,12 +584,10 @@ fun AlarmRingingScreen(
                                 MemoryChallengeUI(
                                     challenge = challenge,
                                     onMemoryComplete = {
-                                        showCorrectAnswerFeedback()
                                         canDismiss = true
                                         showNewChallengeButton = false
                                         onChallengeSolved()
-                                        scope.launch {
-                                            delay(500)
+                                        showCorrectAnswerFeedback {
                                             onDismiss()
                                         }
                                     },
@@ -555,11 +603,9 @@ fun AlarmRingingScreen(
                                     onAnswerSubmit = {
                                         isCorrect = userAnswer == challenge.correctAnswer
                                         if (isCorrect) {
-                                            showCorrectAnswerFeedback()
                                             canDismiss = true
                                             onChallengeSolved()
-                                            scope.launch {
-                                                delay(500)
+                                            showCorrectAnswerFeedback {
                                                 onDismiss()
                                             }
                                         } else {
@@ -582,15 +628,13 @@ fun AlarmRingingScreen(
                                     onAnswerChange = { userAnswer = it },
                                     onAnswerSubmit = {
                                         isCorrect = userAnswer == challenge.correctAnswer
-                                        if (isCorrect) {
-                                            showCorrectAnswerFeedback()
-                                            canDismiss = true
-                                            onChallengeSolved()
-                                            scope.launch {
-                                                delay(500)
-                                                onDismiss()
-                                            }
-                                        } else {
+if (isCorrect) {
+    canDismiss = true
+    onChallengeSolved()
+    showCorrectAnswerFeedback {
+        onDismiss()
+    }
+} else {
                                             showIncorrectAnswerFeedback()
                                             showError = true
                                             scope.launch {
@@ -611,11 +655,9 @@ fun AlarmRingingScreen(
                                     onAnswerSubmit = {
                                         isCorrect = userAnswer == challenge.correctAnswer
                                         if (isCorrect) {
-                                            showCorrectAnswerFeedback()
                                             canDismiss = true
                                             onChallengeSolved()
-                                            scope.launch {
-                                                delay(500)
+                                            showCorrectAnswerFeedback {
                                                 onDismiss()
                                             }
                                         } else {
@@ -657,11 +699,9 @@ fun AlarmRingingScreen(
                                                 userAnswer = option
                                                 isCorrect = option == challenge.correctAnswer
                                                 if (isCorrect) {
-                                                    showCorrectAnswerFeedback()
                                                     canDismiss = true
                                                     onChallengeSolved()
-                                                    scope.launch {
-                                                        delay(500)
+                                                    showCorrectAnswerFeedback {
                                                         onDismiss()
                                                     }
                                                 } else {
@@ -821,7 +861,13 @@ fun AlarmRingingScreen(
                     contentDescription = "New Challenge",
                     modifier = Modifier.size(20.dp)
                 )
-            }
         }
     }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            textToSpeechManager.shutdown()
+        }
+    }
+}
 } 

@@ -22,5 +22,9 @@ data class TodoEntity(
     @ColumnInfo(name = "is_recurring") val isRecurring: Boolean = false,
     @ColumnInfo(name = "recurrence_pattern") val recurrencePattern: String = "", // DAILY, WEEKLY, MONTHLY
     @ColumnInfo(name = "parent_todo_id") val parentTodoId: Long? = null, // For subtasks
-    @ColumnInfo(name = "order_index") val orderIndex: Int = 0
+    @ColumnInfo(name = "order_index") val orderIndex: Int = 0,
+    @ColumnInfo(name = "completion_points") val completionPoints: Int = 10, // Points earned for completion
+    @ColumnInfo(name = "estimated_duration") val estimatedDuration: Int = 30, // minutes
+    @ColumnInfo(name = "actual_duration") val actualDuration: Int? = null, // minutes taken to complete
+    @ColumnInfo(name = "difficulty_level") val difficultyLevel: String = "NORMAL" // EASY, NORMAL, HARD
 ) 

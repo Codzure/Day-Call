@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.codzuregroup.daycall.audio.AudioCategory
 import com.codzuregroup.daycall.data.AlarmEntity
 import com.codzuregroup.daycall.ui.components.DayCallCard
 import com.codzuregroup.daycall.ui.components.FloatingCard
@@ -51,7 +52,6 @@ import com.codzuregroup.daycall.ui.vibes.VibeDefaults
 import com.codzuregroup.daycall.ui.vibes.VibeManager
 import com.codzuregroup.daycall.ui.vibes.VibeManager.getSelectedVibeForAlarm
 import com.codzuregroup.daycall.audio.AudioManager
-import com.codzuregroup.daycall.audio.AudioCategory
 import com.codzuregroup.daycall.ui.settings.SettingsManager
 import com.codzuregroup.daycall.ui.settings.TimeFormat
 import com.codzuregroup.daycall.vibration.VibrationManager
@@ -76,7 +76,7 @@ fun AddAlarmScreen(
     var alarmLabel by remember { mutableStateOf("") }
     var selectedDays by remember { mutableStateOf(emptySet<DayOfWeek>()) }
     var selectedChallenge by remember { mutableStateOf(ChallengeType.MATH) }
-    var selectedSound by remember { mutableStateOf("Ascent Braam") }
+    var selectedSound by remember { mutableStateOf(AudioManager.availableAudioFiles.first().displayName) }
     var selectedVibe by remember { 
         mutableStateOf(getSelectedVibeForAlarm().id) 
     }
@@ -115,14 +115,15 @@ fun AddAlarmScreen(
             ) {
                 Button(
                     onClick = {
-                        val alarm = AlarmEntity(
+                        val audioFile = AudioManager.availableAudioFiles.find { it.displayName == selectedSound }
+                        val alarm = AlarmEntity.create(
                             hour = selectedTime.hour,
                             minute = selectedTime.minute,
                             label = alarmLabel,
                             repeatDays = selectedDays.toBitmask(),
                             challengeType = selectedChallenge.name,
                             vibe = selectedVibe,
-                            sound = selectedSound,
+                            sound = audioFile?.fileName ?: AudioManager.availableAudioFiles.first().fileName,
                             enabled = true
                         )
                         onSaveAlarm(alarm)
@@ -475,6 +476,7 @@ fun SoundSelector(
     ) {
         items(sounds) { sound ->
             val isSelected = selectedSound == sound
+            val audioFile = AudioManager.availableAudioFiles.find { it.displayName == sound }
             DayCallCard(
                 modifier = Modifier.clickable { onSoundSelected(sound) },
                 background = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
@@ -489,8 +491,10 @@ fun SoundSelector(
                     )
                     IconButton(
                         onClick = { 
-                            audioManager?.previewAudio(sound, 3)
-                            onTestSound(sound) 
+                            audioFile?.let { 
+                                audioManager?.previewAudio(it.fileName, 3)
+                                onTestSound(it.fileName) 
+                            }
                         }
                     ) {
                         Icon(Icons.Default.PlayCircle, contentDescription = "Test sound")

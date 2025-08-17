@@ -4,8 +4,12 @@ import android.app.AlarmManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
+import android.os.PowerManager
+import android.provider.Settings
 import android.util.Log
+import androidx.core.content.ContextCompat
 import com.codzuregroup.daycall.data.AlarmEntity
 import com.codzuregroup.daycall.notification.ReminderScheduler
 import java.time.DayOfWeek
@@ -26,12 +30,10 @@ class AlarmScheduler(private val context: Context) {
             return
         }
 
-        // Check if exact alarms are allowed
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            if (!alarmManager.canScheduleExactAlarms()) {
-                Log.e("AlarmScheduler", "Exact alarms not allowed. Please grant permission in settings.")
-                return
-            }
+        // Check and request necessary permissions, but continue scheduling even if not all are granted
+        val permissionsGranted = checkAndRequestPermissions()
+        if (!permissionsGranted) {
+            Log.w("AlarmScheduler", "Not all permissions granted, but continuing with alarm scheduling")
         }
 
         val alarmTime = LocalTime.of(alarm.hour, alarm.minute)
@@ -79,18 +81,31 @@ class AlarmScheduler(private val context: Context) {
         Log.d("AlarmScheduler", "Setting one-time alarm for ${alarm.label} at ${targetTime}, trigger time: $triggerTime")
         
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                alarmManager.setExactAndAllowWhileIdle(
-                    AlarmManager.RTC_WAKEUP,
-                    triggerTime,
-                    pendingIntent
-                )
-            } else {
-                alarmManager.setExact(
-                    AlarmManager.RTC_WAKEUP,
-                    triggerTime,
-                    pendingIntent
-                )
+            when {
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+                    // Android 12+ - Use setAlarmClock for highest priority
+                    val alarmClockInfo = AlarmManager.AlarmClockInfo(
+                        triggerTime,
+                        pendingIntent
+                    )
+                    alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
+                }
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.M -> {
+                    // Android 6+ - Use setExactAndAllowWhileIdle to bypass doze mode
+                    alarmManager.setExactAndAllowWhileIdle(
+                        AlarmManager.RTC_WAKEUP,
+                        triggerTime,
+                        pendingIntent
+                    )
+                }
+                else -> {
+                    // Older versions
+                    alarmManager.setExact(
+                        AlarmManager.RTC_WAKEUP,
+                        triggerTime,
+                        pendingIntent
+                    )
+                }
             }
             Log.d("AlarmScheduler", "Successfully scheduled one-time alarm: ${alarm.id}")
         } catch (e: Exception) {
@@ -127,18 +142,31 @@ class AlarmScheduler(private val context: Context) {
             Log.d("AlarmScheduler", "Setting repeating alarm for ${alarm.label} on ${dayOfWeek} at ${nextAlarmTime}, trigger time: $triggerTime")
             
             try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    alarmManager.setExactAndAllowWhileIdle(
-                        AlarmManager.RTC_WAKEUP,
-                        triggerTime,
-                        pendingIntent
-                    )
-                } else {
-                    alarmManager.setExact(
-                        AlarmManager.RTC_WAKEUP,
-                        triggerTime,
-                        pendingIntent
-                    )
+                when {
+                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+                        // Android 12+ - Use setAlarmClock for highest priority
+                        val alarmClockInfo = AlarmManager.AlarmClockInfo(
+                            triggerTime,
+                            pendingIntent
+                        )
+                        alarmManager.setAlarmClock(alarmClockInfo, pendingIntent)
+                    }
+                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.M -> {
+                        // Android 6+ - Use setExactAndAllowWhileIdle to bypass doze mode
+                        alarmManager.setExactAndAllowWhileIdle(
+                            AlarmManager.RTC_WAKEUP,
+                            triggerTime,
+                            pendingIntent
+                        )
+                    }
+                    else -> {
+                        // Older versions
+                        alarmManager.setExact(
+                            AlarmManager.RTC_WAKEUP,
+                            triggerTime,
+                            pendingIntent
+                        )
+                    }
                 }
                 Log.d("AlarmScheduler", "Successfully scheduled repeating alarm: ${alarm.id} for ${dayOfWeek}")
             } catch (e: Exception) {
@@ -217,4 +245,88 @@ class AlarmScheduler(private val context: Context) {
         // This would typically be called after boot or when permissions are granted
         // Implementation would depend on your alarm repository
     }
+    
+    private fun checkAndRequestPermissions(): Boolean {
+        var allPermissionsGranted = true
+        
+        // Check exact alarm permission (Android 12+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (!alarmManager.canScheduleExactAlarms()) {
+                Log.w("AlarmScheduler", "Exact alarms permission not granted")
+                requestExactAlarmPermission()
+                allPermissionsGranted = false
+            }
+        }
+        
+        // Check battery optimization
+        if (!isBatteryOptimizationDisabled()) {
+            Log.w("AlarmScheduler", "Battery optimization not disabled")
+            requestBatteryOptimizationExemption()
+            allPermissionsGranted = false
+        }
+        
+        return allPermissionsGranted
+    }
+    
+    private fun isBatteryOptimizationDisabled(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+            powerManager.isIgnoringBatteryOptimizations(context.packageName)
+        } else {
+            true // Not applicable for older versions
+        }
+    }
+    
+    private fun requestExactAlarmPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+                    data = Uri.parse("package:${context.packageName}")
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                context.startActivity(intent)
+                Log.d("AlarmScheduler", "Requested exact alarm permission")
+            } catch (e: Exception) {
+                Log.e("AlarmScheduler", "Failed to request exact alarm permission", e)
+            }
+        }
+    }
+    
+    private fun requestBatteryOptimizationExemption() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            try {
+                val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                    data = Uri.parse("package:${context.packageName}")
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                context.startActivity(intent)
+                Log.d("AlarmScheduler", "Requested battery optimization exemption")
+            } catch (e: Exception) {
+                Log.e("AlarmScheduler", "Failed to request battery optimization exemption", e)
+            }
+        }
+    }
+    
+    fun checkAlarmPermissions(): AlarmPermissionStatus {
+        val exactAlarmGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            alarmManager.canScheduleExactAlarms()
+        } else {
+            true
+        }
+        
+        val batteryOptimizationDisabled = isBatteryOptimizationDisabled()
+        
+        return AlarmPermissionStatus(
+            exactAlarmGranted = exactAlarmGranted,
+            batteryOptimizationDisabled = batteryOptimizationDisabled
+        )
+    }
+}
+
+data class AlarmPermissionStatus(
+    val exactAlarmGranted: Boolean,
+    val batteryOptimizationDisabled: Boolean
+) {
+    val allPermissionsGranted: Boolean
+        get() = exactAlarmGranted && batteryOptimizationDisabled
 } 

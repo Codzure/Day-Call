@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Scaffold
 import androidx.compose.ui.Alignment
@@ -55,9 +56,9 @@ import com.codzuregroup.daycall.ui.alarm.AlarmListScreen
 import com.codzuregroup.daycall.ui.alarm.EditAlarmScreen
 import com.codzuregroup.daycall.ui.theme.DayCallTheme
 import com.codzuregroup.daycall.ui.vibes.VibesScreen
-import com.codzuregroup.daycall.ui.todo.TodoScreen
+import com.codzuregroup.daycall.ui.todo.ModernTodoScreen
 import com.codzuregroup.daycall.ui.todo.TodoItem
-import com.codzuregroup.daycall.ui.todo.AddTodoScreen
+import com.codzuregroup.daycall.ui.todo.ModernAddTodoScreen
 import com.codzuregroup.daycall.ui.todo.TodoViewModel
 import com.codzuregroup.daycall.ui.todo.TodoEvent
 import com.codzuregroup.daycall.ui.settings.SettingsScreen
@@ -71,6 +72,7 @@ import com.codzuregroup.daycall.alarm.AlarmService
 import com.codzuregroup.daycall.alarm.AlarmRingingActivity
 import android.app.ActivityManager
 import android.content.Context
+import com.codzuregroup.daycall.ui.todo.CompletedTodosScreen
 
 class MainActivity : ComponentActivity() {
     
@@ -84,6 +86,9 @@ class MainActivity : ComponentActivity() {
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Enable edge-to-edge display
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
         
         // Request notification permission for Android 13+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -240,7 +245,8 @@ fun DayCallApp() {
                     onAddTodo = { currentScreen = Screen.AddTodo },
                     onEditTodo = { todo ->
                         currentScreen = Screen.EditTodo(todo)
-                    }
+                    },
+                    onNavigateToCompleted = { currentScreen = Screen.CompletedTodos }
                 )
             }
             Screen.AddAlarm -> {
@@ -272,7 +278,7 @@ fun DayCallApp() {
             }
             Screen.AddTodo -> {
                 val todoViewModel: TodoViewModel = viewModel()
-                AddTodoScreen(
+                ModernAddTodoScreen(
                     onBackPressed = { currentScreen = Screen.Main },
                     onSaveTodo = { todo ->
                         todoViewModel.handleEvent(TodoEvent.AddTodo(todo))
@@ -282,13 +288,21 @@ fun DayCallApp() {
             }
             is Screen.EditTodo -> {
                 val todoViewModel: TodoViewModel = viewModel()
-                AddTodoScreen(
+                ModernAddTodoScreen(
                     onBackPressed = { currentScreen = Screen.Main },
                     onSaveTodo = { todo ->
                         todoViewModel.handleEvent(TodoEvent.UpdateTodo(todo))
                         currentScreen = Screen.Main
                     },
                     editingTodo = (currentScreen as Screen.EditTodo).todo
+                )
+            }
+            Screen.CompletedTodos -> {
+                val todoViewModel: TodoViewModel = viewModel()
+                CompletedTodosScreen(
+                    onBackPressed = { currentScreen = Screen.Main },
+                    onEditTodo = { todo -> currentScreen = Screen.EditTodo(todo) },
+                    viewModel = todoViewModel
                 )
             }
         }
@@ -385,7 +399,8 @@ fun MainContainer(
     onEditAlarm: (Long) -> Unit,
     onAlarmRinging: (String) -> Unit,
     onAddTodo: () -> Unit,
-    onEditTodo: (TodoItem) -> Unit
+    onEditTodo: (TodoItem) -> Unit,
+    onNavigateToCompleted: () -> Unit
 ) {
     val context = LocalContext.current
     val settingsManager = remember { SettingsManager.getInstance(context) }
@@ -396,7 +411,8 @@ fun MainContainer(
                 selectedTab = selectedTab,
                 onTabSelected = onTabSelected
             )
-        }
+        },
+        contentWindowInsets = WindowInsets(0.dp)
     ) { paddingValues ->
         Box(
             modifier = Modifier
@@ -425,11 +441,10 @@ fun MainContainer(
                     )
                 }
                 2 -> {
-                    // Todo Tab
-                    TodoScreen(
-                        onBackPressed = { onTabSelected(0) },
+                    ModernTodoScreen(
                         onNavigateToAddTodo = onAddTodo,
-                        onNavigateToEditTodo = onEditTodo
+                        onNavigateToEditTodo = onEditTodo,
+                        onNavigateToCompleted = onNavigateToCompleted
                     )
                 }
                 3 -> {
@@ -452,4 +467,5 @@ sealed class Screen {
     data class EditAlarm(val alarmId: Long) : Screen()
     object AddTodo : Screen()
     data class EditTodo(val todo: TodoItem) : Screen()
+    object CompletedTodos : Screen()
 }

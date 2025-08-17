@@ -14,8 +14,15 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
 
 @Database(
-    entities = [AlarmEntity::class, UserEntity::class, TodoEntity::class],
-    version = 6,
+    entities = [
+        AlarmEntity::class, 
+        UserEntity::class, 
+        TodoEntity::class,
+        UserStatsEntity::class,
+        AchievementEntity::class,
+        TaskTemplateEntity::class
+    ],
+    version = 7,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -23,6 +30,9 @@ abstract class DayCallDatabase : RoomDatabase() {
     abstract fun alarmDao(): AlarmDao
     abstract fun userDao(): UserDao
     abstract fun todoDao(): TodoDao
+    abstract fun userStatsDao(): UserStatsDao
+    abstract fun achievementDao(): AchievementDao
+    abstract fun taskTemplateDao(): TaskTemplateDao
 
     companion object {
         @Volatile

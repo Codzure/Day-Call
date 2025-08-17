@@ -29,6 +29,9 @@ class SettingsManager(context: Context) {
     private val _soundVolume = MutableStateFlow(0.8f)
     val soundVolume: StateFlow<Float> = _soundVolume.asStateFlow()
     
+    private val _userName = MutableStateFlow("")
+    val userName: StateFlow<String> = _userName.asStateFlow()
+    
     init {
         loadSettings()
     }
@@ -42,6 +45,8 @@ class SettingsManager(context: Context) {
         
         _soundEnabled.value = prefs.getBoolean("sound_enabled", true)
         _soundVolume.value = prefs.getFloat("sound_volume", 0.8f)
+        
+        _userName.value = prefs.getString("user_name", "") ?: ""
     }
     
     fun setTimeFormat(format: TimeFormat) {
@@ -67,6 +72,11 @@ class SettingsManager(context: Context) {
     fun setSoundVolume(volume: Float) {
         _soundVolume.value = volume.coerceIn(0f, 1f)
         prefs.edit().putFloat("sound_volume", _soundVolume.value).apply()
+    }
+    
+    fun setUserName(name: String) {
+        _userName.value = name
+        prefs.edit().putString("user_name", name).apply()
     }
     
     companion object {

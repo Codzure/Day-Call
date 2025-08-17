@@ -110,10 +110,44 @@ class TodoViewModel(application: Application) : AndroidViewModel(application) {
     private fun toggleComplete(todoId: Long) {
         viewModelScope.launch {
             try {
-                val todo = repository.getTodoById(todoId)
-                todo?.let {
-                    val completedAt = if (!it.isCompleted) LocalDateTime.now() else null
-                    repository.updateTodoCompletion(todoId, !it.isCompleted, completedAt)
+                val entity = repository.getTodoById(todoId)
+                entity?.let { current ->
+                    val now = LocalDateTime.now()
+                    val newCompleted = !current.isCompleted
+
+                    if (newCompleted && current.isRecurring) {
+                        val nextDue = when (RecurrencePattern.valueOf(current.recurrencePattern.ifEmpty { "DAILY" })) {
+                            RecurrencePattern.DAILY -> (current.dueDate ?: now).plusDays(1)
+                            RecurrencePattern.WEEKLY -> (current.dueDate ?: now).plusWeeks(1)
+                            RecurrencePattern.MONTHLY -> (current.dueDate ?: now).plusMonths(1)
+                            RecurrencePattern.YEARLY -> (current.dueDate ?: now).plusYears(1)
+                        }
+                        val nextReminder = current.reminderTime?.let { r ->
+                            when (RecurrencePattern.valueOf(current.recurrencePattern.ifEmpty { "DAILY" })) {
+                                RecurrencePattern.DAILY -> r.plusDays(1)
+                                RecurrencePattern.WEEKLY -> r.plusWeeks(1)
+                                RecurrencePattern.MONTHLY -> r.plusMonths(1)
+                                RecurrencePattern.YEARLY -> r.plusYears(1)
+                            }
+                        }
+                        val rolled = current.copy(
+                            isCompleted = false,
+                            completedAt = null,
+                            dueDate = nextDue,
+                            reminderTime = nextReminder
+                        )
+                        repository.updateTodo(rolled)
+                        scheduleReminderIfNeeded(rolled)
+                    } else {
+                        val completedAt = if (newCompleted) now else null
+                        repository.updateTodoCompletion(todoId, newCompleted, completedAt)
+
+                        val context = getApplication<Application>().applicationContext
+                        val workManager = androidx.work.WorkManager.getInstance(context)
+                        val tag = "todo_reminder_${todoId}"
+                        workManager.cancelAllWorkByTag(tag)
+                        if (!newCompleted) scheduleReminderIfNeeded(current)
+                    }
                 }
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = "Failed to toggle todo: ${e.message}") }
@@ -173,10 +207,7 @@ class TodoViewModel(application: Application) : AndroidViewModel(application) {
                         filteredTodos = filteredTodos.filter { it.priority == priority.name }
                     }
                     
-                    // Filter by completion status
-                    if (!showCompleted) {
-                        filteredTodos = filteredTodos.filter { !it.isCompleted }
-                    }
+                    // Do not filter out completed here; keep all so UI can present both active and completed
                     
                     // Convert to TodoItem
                     filteredTodos.map { entity ->
@@ -249,8 +280,34 @@ class TodoViewModel(application: Application) : AndroidViewModel(application) {
     }
     
     private fun scheduleReminderIfNeeded(todo: TodoEntity) {
-        // TODO: Implement reminder scheduling using WorkManager
-        // This would schedule a notification for the reminder time
+        try {
+            val context = getApplication<Application>().applicationContext
+            val workManager = androidx.work.WorkManager.getInstance(context)
+            val uniqueTag = "todo_reminder_${todo.id}"
+            workManager.cancelAllWorkByTag(uniqueTag)
+
+            val reminderTime = todo.reminderTime
+            if (reminderTime != null) {
+                val delayMillis = java.time.Duration.between(LocalDateTime.now(), reminderTime).toMillis()
+                if (delayMillis > 0) {
+                    val input = androidx.work.Data.Builder()
+                        .putLong("todo_id", todo.id)
+                        .putString("title", todo.title)
+                        .putString("description", todo.description)
+                        .build()
+
+                    val request = androidx.work.OneTimeWorkRequestBuilder<com.codzuregroup.daycall.ui.todo.TodoReminderWorker>()
+                        .setInputData(input)
+                        .setInitialDelay(delayMillis, java.util.concurrent.TimeUnit.MILLISECONDS)
+                        .addTag(uniqueTag)
+                        .build()
+
+                    workManager.enqueue(request)
+                }
+            }
+        } catch (e: Exception) {
+            _uiState.update { it.copy(error = "Failed to schedule reminder: ${e.message}") }
+        }
     }
     
     fun getFilteredTodos(): List<TodoItem> {
@@ -275,8 +332,4 @@ data class TodoStats(
     val completed: Int,
     val pending: Int,
     val overdue: Int
-)
-
-enum class RecurrencePattern {
-    DAILY, WEEKLY, MONTHLY, YEARLY
-} 
+) 

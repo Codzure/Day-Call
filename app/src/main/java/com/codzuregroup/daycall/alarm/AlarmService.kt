@@ -4,6 +4,7 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
+import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.IBinder
@@ -11,20 +12,29 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.codzuregroup.daycall.R
 import com.codzuregroup.daycall.audio.AudioManager
-import com.codzuregroup.daycall.audio.AudioCategory
 import com.codzuregroup.daycall.vibration.VibrationManager
 
 class AlarmService : Service() {
     private lateinit var audioManager: AudioManager
     private lateinit var vibrationManager: VibrationManager
     private var isPlaying = false
+    private var wakeLock: android.os.PowerManager.WakeLock? = null
 
     override fun onCreate() {
         super.onCreate()
         createChannel()
         audioManager = AudioManager(this)
         vibrationManager = VibrationManager(this)
-        Log.d("AlarmService", "Service created")
+        
+        // Acquire wake lock to keep device awake during alarm
+        val powerManager = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+        wakeLock = powerManager.newWakeLock(
+            android.os.PowerManager.PARTIAL_WAKE_LOCK,
+            "DayCall:AlarmServiceWakeLock"
+        )
+        wakeLock?.acquire(20 * 60 * 1000L) // 20 minutes timeout
+        
+        Log.d("AlarmService", "Service created with wake lock")
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -167,6 +177,15 @@ class AlarmService : Service() {
     override fun onDestroy() {
         Log.d("AlarmService", "Service destroyed")
         stopAlarm()
+        
+        // Release wake lock
+        wakeLock?.let { wl ->
+            if (wl.isHeld) {
+                wl.release()
+                Log.d("AlarmService", "Wake lock released")
+            }
+        }
+        
         super.onDestroy()
     }
 
