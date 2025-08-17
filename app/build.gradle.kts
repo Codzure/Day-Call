@@ -110,7 +110,11 @@ android {
         compose = true
         buildConfig = true
     }
-    
+
+    testOptions {
+        animationsDisabled = true
+    }
+
     // Bundle configuration for App Bundle optimization
     bundle {
         language {
@@ -153,7 +157,7 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
-    
+    implementation("androidx.compose.foundation:foundation:1.6.7")
     // Material Icons (needed for Icons.Default.*)
     implementation("androidx.compose.material:material-icons-core")
     implementation("androidx.compose.material:material-icons-extended")
@@ -173,7 +177,9 @@ dependencies {
     // Hilt for dependency injection (optional but recommended)
     implementation("com.google.dagger:hilt-android:2.50")
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
-    
+    implementation(libs.androidx.junit.ktx)
+    implementation(libs.ui.test.junit4)
+
     // Room compiler
     kapt(libs.androidx.room.compiler)
     
@@ -192,4 +198,6 @@ dependencies {
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.com.google.exoplayer)
     coreLibraryDesugaring(libs.desugar.jdk.libs)
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4:1.6.7")
+    debugImplementation("androidx.compose.ui:ui-test-manifest:1.6.7")
 }

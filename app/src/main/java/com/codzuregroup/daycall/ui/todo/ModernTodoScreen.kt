@@ -166,7 +166,7 @@ fun ModernTodoScreen(
                             onToggleComplete = { viewModel.handleEvent(TodoEvent.ToggleComplete(todo.id)) },
                             onEdit = { onNavigateToEditTodo(todo) },
                             onDelete = { viewModel.handleEvent(TodoEvent.DeleteTodo(todo.id)) },
-                            modifier = Modifier.animateItemPlacement()
+                            // modifier = Modifier.animateItemPlacement()
                         )
                     }
                 }
