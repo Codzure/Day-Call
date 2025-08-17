@@ -37,6 +37,12 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             repository.getAlarms().collect { alarmList ->
                 _alarms.value = alarmList
+                // Update next alarm foreground notification
+                try {
+                    com.codzuregroup.daycall.service.NextAlarmResolver.updateService(
+                        getApplication(), alarmList
+                    )
+                } catch (_: Exception) {}
             }
         }
     }
@@ -102,6 +108,8 @@ class AlarmViewModel(application: Application) : AndroidViewModel(application) {
                 // Then delete from database
                 repository.deleteAlarm(alarm)
                 Log.d("AlarmViewModel", "Alarm deleted successfully: ${alarm.id}")
+                // Update service after deletion
+                try { com.codzuregroup.daycall.service.NextAlarmResolver.updateService(getApplication(), _alarms.value) } catch (_: Exception) {}
             } catch (e: Exception) {
                 Log.e("AlarmViewModel", "Error deleting alarm", e)
             }

@@ -8,14 +8,17 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     
-    <!-- Service and background execution permissions -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    	<!-- Service and background execution permissions -->
+    	<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    	<uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    	<uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     
-    <!-- Notification permissions -->
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    	<!-- Notification permissions -->
+    	<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    	<uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    
+    	<!-- Foreground service type-specific permissions -->
+    	<uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     
     <!-- Screen and device control permissions -->
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD" />
@@ -114,6 +117,10 @@
                 android:value="androidx.startup"
                 tools:node="remove" />
         </provider>
+        <service
+            android:name=".service.NextAlarmForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync"
+        />
     </application>
-
 </manifest>

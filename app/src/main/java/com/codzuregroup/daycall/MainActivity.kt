@@ -120,6 +120,7 @@ class MainActivity : ComponentActivity() {
         UserManager.initialize(this)
         VibeManager.initialize(this)
         setContent {
+            // On app open, ensure foreground service reflects current next alarm
             DayCallTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
@@ -213,7 +214,6 @@ fun DayCallApp() {
         backstack.clear()
         backstack.add(screen)
     }
-    @RequiresApi(Build.VERSION_CODES.VANILLA_ICE_CREAM)
     fun popBack() {
         if (backstack.size > 1) {
             isForward = false
@@ -226,11 +226,15 @@ fun DayCallApp() {
         replaceRoot(Screen.Splash)
     }
 
-    var currentScreen: Screen? = backstack.lastOrNull()
+    val currentScreen: Screen? = backstack.lastOrNull()
 
     // System back handling
-    BackHandler(enabled = backstack.size > 1) {
-        popBack()
+    val canHandleBack = (backstack.size > 1) || (currentScreen == Screen.Main && selectedTab != 0)
+    BackHandler(enabled = canHandleBack) {
+        when {
+            backstack.size > 1 -> popBack()
+            currentScreen == Screen.Main && selectedTab != 0 -> selectedTab = 0
+        }
     }
 
     Box(
@@ -296,9 +300,9 @@ fun DayCallApp() {
                 Screen.AddAlarm -> {
                     AddAlarmScreen(
                         onBackPressed = { popBack() },
-                        onSaveAlarm = { alarm ->
+onSaveAlarm = { alarm ->
                             viewModel.saveAlarm(alarm)
-                            currentScreen = Screen.Main
+                            popBack()
                         },
                         onTestSound = { soundName ->
                             // Handle sound testing
@@ -310,13 +314,13 @@ fun DayCallApp() {
                         alarmId = (screen as Screen.EditAlarm).alarmId,
                         viewModel = viewModel,
                         onBackPressed = { popBack() },
-                        onSaveAlarm = { alarm ->
+onSaveAlarm = { alarm ->
                             viewModel.updateAlarm(alarm)
-                            currentScreen = Screen.Main
+                            popBack()
                         },
                         onDeleteAlarm = { alarm ->
                             viewModel.deleteAlarm(alarm)
-                            currentScreen = Screen.Main
+                            popBack()
                         }
                     )
                 }
