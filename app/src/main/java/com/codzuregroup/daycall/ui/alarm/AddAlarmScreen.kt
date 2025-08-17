@@ -72,6 +72,16 @@ fun AddAlarmScreen(
     val settingsManager = remember { SettingsManager.getInstance(context) }
     val vibrationManager = remember { VibrationManager(context) }
     val timeFormat by settingsManager.timeFormat.collectAsStateWithLifecycle()
+    // Ensure we have an AudioManager available for preview/playback
+    val alarmAudioManager = remember { audioManager ?: AudioManager(context) }
+    var isPreviewing by remember { mutableStateOf(false) }
+
+    // Stop any preview when leaving this screen
+    DisposableEffect(Unit) {
+        onDispose {
+            alarmAudioManager.stopPreview()
+        }
+    }
     var selectedTime by remember { mutableStateOf(LocalTime.now()) }
     var alarmLabel by remember { mutableStateOf("") }
     var selectedDays by remember { mutableStateOf(emptySet<DayOfWeek>()) }
@@ -98,8 +108,18 @@ fun AddAlarmScreen(
                     }
                 },
                 actions = {
-                    TextButton(onClick = { /* Handle preview */ }) {
-                        Text("Preview", color = MaterialTheme.colorScheme.primary)
+                    TextButton(onClick = {
+                        val audioFile = AudioManager.availableAudioFiles.find { it.displayName == selectedSound }
+                        if (isPreviewing) {
+                            alarmAudioManager.stopPreview()
+                            isPreviewing = false
+                        } else {
+                            alarmAudioManager.previewAudio(audioFile?.fileName, 5)
+                            onTestSound(audioFile?.fileName ?: "")
+                            isPreviewing = true
+                        }
+                    }) {
+                        Text(if (isPreviewing) "Stop" else "Preview", color = MaterialTheme.colorScheme.primary)
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
@@ -310,9 +330,19 @@ fun AddAlarmScreen(
                         SoundSelector(
                             selectedSound, 
                             onSoundSelected = { selectedSound = it }, 
-                            onTestSound = onTestSound,
-                            audioManager = audioManager
+                            onSoundPreview = { fileName, play ->
+                                if (play) {
+                                    alarmAudioManager.previewAudio(fileName, 10)
+                                } else {
+                                    alarmAudioManager.stopPreview()
+                                }
+                                onTestSound(fileName)
+                            },
+                            audioManager = alarmAudioManager
                         )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+                        VolumeControlRow(audioManager = alarmAudioManager)
                     }
                 }
             }
@@ -462,10 +492,17 @@ fun ChallengeSelector(selectedChallenge: ChallengeType, onChallengeSelected: (Ch
 fun SoundSelector(
     selectedSound: String, 
     onSoundSelected: (String) -> Unit, 
-    onTestSound: (String) -> Unit,
+    onSoundPreview: (String, Boolean) -> Unit,
     audioManager: AudioManager? = null
 ) {
     val sounds = AudioManager.availableAudioFiles.map { it.displayName }
+    var previewingFile by remember { mutableStateOf<String?>(null) }
+    var isPreviewing by remember { mutableStateOf(false) }
+
+    // Stop preview when this composable leaves composition
+    DisposableEffect(Unit) {
+        onDispose { audioManager?.stopPreview() }
+    }
 
     LazyVerticalGrid(
         columns = GridCells.Adaptive(minSize = 128.dp),
@@ -491,13 +528,24 @@ fun SoundSelector(
                     )
                     IconButton(
                         onClick = { 
-                            audioFile?.let { 
-                                audioManager?.previewAudio(it.fileName, 3)
-                                onTestSound(it.fileName) 
+                            audioFile?.let { file ->
+                                if (previewingFile == file.fileName && isPreviewing) {
+                                    onSoundPreview(file.fileName, false)
+                                    isPreviewing = false
+                                    previewingFile = null
+                                } else {
+                                    onSoundPreview(file.fileName, true)
+                                    isPreviewing = true
+                                    previewingFile = file.fileName
+                                }
                             }
                         }
                     ) {
-                        Icon(Icons.Default.PlayCircle, contentDescription = "Test sound")
+                        val isThisPlaying = audioFile?.fileName == previewingFile && isPreviewing
+                        Icon(
+                            imageVector = if (isThisPlaying) Icons.Default.Stop else Icons.Default.PlayCircle,
+                            contentDescription = if (isThisPlaying) "Stop preview" else "Preview sound"
+                        )
                     }
                 }
             }
@@ -655,6 +703,23 @@ fun VibeSelector(selectedVibeId: String, onVibeSelected: (String) -> Unit) {
                 }
             }
         }
+    }
+}
+
+@Composable
+fun VolumeControlRow(audioManager: AudioManager) {
+    val volume by audioManager.volume.collectAsStateWithLifecycle()
+    Column {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.VolumeUp, contentDescription = null)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Preview volume", style = MaterialTheme.typography.bodySmall)
+        }
+        Slider(
+            value = volume,
+            onValueChange = { audioManager.setVolume(it) },
+            valueRange = 0f..1f
+        )
     }
 }
 

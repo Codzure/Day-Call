@@ -59,7 +59,10 @@ data class ConfettiParticle(
     val y: Float,
     val color: Color,
     val rotation: Float,
-    val scale: Float
+    val scale: Float,
+    val dx: Float, // horizontal velocity
+    val dy: Float, // vertical velocity
+    val dr: Float  // angular velocity
 )
 
 fun createConfettiParticles(): List<ConfettiParticle> {
@@ -74,14 +77,17 @@ fun createConfettiParticles(): List<ConfettiParticle> {
         Color(0xFF85C1E9)  // Light Blue
     )
     
-    return List(30) { index ->
+return List(30) { index ->
         ConfettiParticle(
             id = index,
-            x = Random.nextFloat() * 1000f,
-            y = -50f - Random.nextFloat() * 200f,
+            x = Random.nextFloat() * 360f, // within typical phone width; will still look fine on wider
+            y = -50f - Random.nextFloat() * 200f, // start above the top
             color = colors[Random.nextInt(colors.size)],
             rotation = Random.nextFloat() * 360f,
-            scale = 0.5f + Random.nextFloat() * 0.5f
+            scale = 0.5f + Random.nextFloat() * 0.5f,
+            dx = (Random.nextFloat() * 2f) - 1f,
+            dy = 2f + (Random.nextFloat() * 4f),
+            dr = (Random.nextFloat() * 12f) - 6f
         )
     }
 }
@@ -255,10 +261,26 @@ fun AlarmRingingScreen(
         }
     }
     
-    // Feedback functions
+// Feedback functions
     fun showCorrectAnswerFeedback(onComplete: (() -> Unit)? = null) {
         showCorrectFeedback = true
         confettiParticles = createConfettiParticles()
+        // Start confetti animation loop
+        scope.launch {
+            while (showCorrectFeedback) {
+                confettiParticles = confettiParticles.map { p ->
+                    // simple gravity and wind
+                    val newDy = p.dy + 0.12f
+                    p.copy(
+                        x = p.x + p.dx,
+                        y = p.y + newDy,
+                        rotation = (p.rotation + p.dr) % 360f,
+                        dy = newDy
+                    )
+                }
+                delay(16)
+            }
+        }
         isTTSSpeaking = true
         onTTSStateChanged?.invoke(true)
         

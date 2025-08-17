@@ -5,6 +5,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -16,6 +18,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
@@ -38,13 +41,18 @@ fun ModernTaskCard(
         label = "task_alpha"
     )
     
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(targetValue = if (pressed) 0.98f else 1f, animationSpec = tween(150), label = "press_scale")
+
     DayCallCard(
         modifier = modifier
             .fillMaxWidth()
-            .alpha(alpha),
-        background = if (todo.isCompleted) 
+            .alpha(alpha)
+            .scale(scale),
+        background = if (todo.isCompleted)
             MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        else 
+        else
             MaterialTheme.colorScheme.surface,
         elevation = if (todo.isCompleted) 2 else 6
     ) {
@@ -72,7 +80,8 @@ fun ModernTaskCard(
                     colors = CheckboxDefaults.colors(
                         checkedColor = todo.priority.color,
                         uncheckedColor = MaterialTheme.colorScheme.outline
-                    )
+                    ),
+                    interactionSource = interactionSource
                 )
                 
                 Spacer(modifier = Modifier.width(12.dp))

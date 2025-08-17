@@ -1,12 +1,12 @@
 package com.codzuregroup.daycall.ui.todo
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -16,7 +16,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.codzuregroup.daycall.ui.components.DayCallCard
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ModernTodoScreen(
     onBackPressed: (() -> Unit)? = null,
@@ -131,24 +131,44 @@ fun ModernTodoScreen(
             }
             
             // Task List
-            if (filteredTodos.isEmpty()) {
+            if (uiState.isLoading) {
+                // Shimmer placeholders
+                items(6) {
+                    com.codzuregroup.daycall.ui.components.DayCallCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        elevation = 4
+                    ) {
+                        com.codzuregroup.daycall.ui.components.ShimmerPlaceholder(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(72.dp)
+                        )
+                    }
+                }
+            } else if (filteredTodos.isEmpty()) {
                 item {
                     ModernEmptyState(
                         onAddTask = onNavigateToAddTodo
                     )
                 }
             } else {
-                items(filteredTodos) { todo ->
-                    ModernTaskCard(
-                        todo = todo,
-                        onToggleComplete = { 
-                            viewModel.handleEvent(TodoEvent.ToggleComplete(todo.id)) 
-                        },
-                        onEdit = { onNavigateToEditTodo(todo) },
-                        onDelete = { 
-                            viewModel.handleEvent(TodoEvent.DeleteTodo(todo.id)) 
-                        }
-                    )
+                items(
+                    items = filteredTodos,
+                    key = { it.id }
+                ) { todo ->
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = true,
+                        enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.slideInVertically(initialOffsetY = { it / 2 }),
+                        exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.slideOutVertically(targetOffsetY = { it / 2 })
+                    ) {
+                        ModernTaskCard(
+                            todo = todo,
+                            onToggleComplete = { viewModel.handleEvent(TodoEvent.ToggleComplete(todo.id)) },
+                            onEdit = { onNavigateToEditTodo(todo) },
+                            onDelete = { viewModel.handleEvent(TodoEvent.DeleteTodo(todo.id)) },
+                            modifier = Modifier.animateItemPlacement()
+                        )
+                    }
                 }
                 
                 // Completed Tasks Section (if any and when showing active list)

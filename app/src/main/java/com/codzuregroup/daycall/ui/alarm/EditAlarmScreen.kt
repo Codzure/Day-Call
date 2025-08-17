@@ -23,7 +23,12 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Divider
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -463,61 +468,14 @@ fun EditAlarmScreen(
 
     // Time picker dialog
     if (showTimePicker) {
-        AlertDialog(
-            onDismissRequest = { showTimePicker = false },
-            title = { Text("Select Time") },
-            text = {
-                Column {
-                    val currentTime = LocalTime.of(selectedHour, selectedMinute)
-                    Text(
-                        text = when (timeFormat) {
-                            TimeFormat.HOUR_12 -> currentTime.format(DateTimeFormatter.ofPattern("hh:mm a"))
-                            TimeFormat.HOUR_24 -> currentTime.format(DateTimeFormatter.ofPattern("HH:mm"))
-                            else -> currentTime.format(DateTimeFormatter.ofPattern("hh:mm a"))
-                        },
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    Text("Hour: $selectedHour")
-                    Text("Minute: $selectedMinute")
-                    
-                    // Simple time picker controls
-                    Row {
-                        Button(onClick = { selectedHour = (selectedHour + 1) % 24 }) {
-                            Text("Hour +")
-                        }
-                        Button(onClick = { selectedHour = if (selectedHour == 0) 23 else selectedHour - 1 }) {
-                            Text("Hour -")
-                        }
-                    }
-                    Row {
-                        Button(onClick = { selectedMinute = (selectedMinute + 1) % 60 }) {
-                            Text("Minute +")
-                        }
-                        Button(onClick = { selectedMinute = if (selectedMinute == 0) 59 else selectedMinute - 1 }) {
-                            Text("Minute -")
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showTimePicker = false
-                    }
-                ) {
-                    Text("OK")
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = { showTimePicker = false }
-                ) {
-                    Text("Cancel")
-                }
+        EditTimePickerDialog(
+            initialTime = LocalTime.of(selectedHour, selectedMinute),
+            timeFormat = timeFormat,
+            onDismiss = { showTimePicker = false },
+            onConfirm = { newTime ->
+                selectedHour = newTime.hour
+                selectedMinute = newTime.minute
+                showTimePicker = false
             }
         )
     }
@@ -563,4 +521,119 @@ fun EditAlarmScreen(
             }
         )
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EditTimePickerDialog(
+    initialTime: LocalTime,
+    onDismiss: () -> Unit,
+    onConfirm: (LocalTime) -> Unit,
+    timeFormat: TimeFormat
+) {
+    var hour by remember { mutableStateOf(initialTime.hour) }
+    var minute by remember { mutableStateOf(initialTime.minute) }
+    val state = rememberTimePickerState(
+        initialHour = hour,
+        initialMinute = minute,
+        is24Hour = timeFormat == TimeFormat.HOUR_24
+    )
+
+    LaunchedEffect(state.hour, state.minute) {
+        hour = state.hour
+        minute = state.minute
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+        text = {
+            Column(
+                modifier = Modifier
+                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(28.dp))
+                    .padding(24.dp)
+            ) {
+                Text(
+                    text = "Select Time",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = "Swipe up or down to adjust",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
+                Spacer(Modifier.height(16.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                    TimePicker(state = state)
+                }
+                Spacer(Modifier.height(16.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    TextButton(onClick = onDismiss) { Text("Cancel") }
+                    Button(onClick = { onConfirm(LocalTime.of(hour, minute)) }) {
+                        Text("Set Time")
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                Divider()
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = "Or use quick adjustments:",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                            RoundedCornerShape(16.dp)
+                        )
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Hour control
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+IconButton(onClick = { hour = (hour + 23) % 24; state.hour = hour }) {
+                            Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Hour down")
+                        }
+                        Text(
+                            text = hour.toString().padStart(2, '0'),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Medium
+                        )
+IconButton(onClick = { hour = (hour + 1) % 24; state.hour = hour }) {
+                            Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "Hour up")
+                        }
+                    }
+                    Text(":", style = MaterialTheme.typography.titleLarge)
+                    // Minute control
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+IconButton(onClick = { minute = (minute + 59) % 60; state.minute = minute }) {
+                            Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Minute down")
+                        }
+                        Text(
+                            text = minute.toString().padStart(2, '0'),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Medium
+                        )
+IconButton(onClick = { minute = (minute + 1) % 60; state.minute = minute }) {
+                            Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "Minute up")
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {}
+    )
 }

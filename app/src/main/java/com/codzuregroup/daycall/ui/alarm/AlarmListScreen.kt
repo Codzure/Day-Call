@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -28,6 +29,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.codzuregroup.daycall.data.AlarmEntity
 import com.codzuregroup.daycall.ui.AlarmViewModel
@@ -163,12 +166,30 @@ fun HomeAppBar(viewModel: AlarmViewModel) {
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            Text(
-                text = "Hello, $userName 👋",
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
+            val waveTransition = rememberInfiniteTransition(label = "wave")
+            val angle by waveTransition.animateFloat(
+                initialValue = -18f,
+                targetValue = 18f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(durationMillis = 800, easing = FastOutSlowInEasing),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "angle"
             )
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(
+                    text = "Hello, $userName ",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "👋",
+                    style = MaterialTheme.typography.headlineSmall,
+                    modifier = Modifier.rotate(angle),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
         }
     }
 }
@@ -245,51 +266,13 @@ fun CurrentTimeCard(alarms: List<AlarmEntity>) {
                     .padding(12.dp),
                 verticalArrangement = Arrangement.Top
             ) {
-                // Header row: Weekday + date range on left, action icons on right
-                Row(
+                // Day selection row: full current day on the left, remaining day initials on the right
+                DaySelectionRow(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.Bottom) {
-                        val today = LocalDate.now()
-                        val tomorrow = today.plusDays(1)
-                        val dayName = today.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.getDefault())
-                        val monthName = today.month.getDisplayName(TextStyle.FULL, Locale.getDefault())
-                        Text(
-                            text = dayName,
-                            style = MaterialTheme.typography.headlineMedium.copy(
-                                fontWeight = FontWeight.Bold
-                            ),
-                            color = Color.White
-                        )
-                    }
-                }
+                    textColor = Color.White
+                )
 
-                Spacer(modifier = Modifier.height(4.dp))
-
-                // Day chips row beneath header
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    val labels = listOf("M","T","W","T","F","S","S")
-                    val currentDayIndex = LocalDate.now().dayOfWeek.ordinal // 0=Mon..6=Sun
-                    labels.forEachIndexed { index, label ->
-                        val isToday = index == currentDayIndex
-                        val bg = if (isToday) Color.White.copy(alpha = 0.25f) else Color.Transparent
-                        val borderColor = if (isToday) Color.White else Color.White.copy(alpha = 0.5f)
-                        val textColor = if (isToday) Color(0xFF1E1E1E) else Color.White
-                        Box(
-                            modifier = Modifier
-                                .size(22.dp)
-                                .background(bg, CircleShape)
-                                .border(1.dp, borderColor, CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(label, color = textColor, style = MaterialTheme.typography.labelSmall)
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                 Row(
                     verticalAlignment = Alignment.Bottom
                 ) {
@@ -600,5 +583,68 @@ private fun getGreeting(): String {
         in 6..11 -> "Good Morning"
         in 12..17 -> "Good Afternoon"
         else -> "Good Evening"
+    }
+}
+
+@Composable
+private fun DaySelectionRow(
+    modifier: Modifier = Modifier,
+    textColor: Color = MaterialTheme.colorScheme.onPrimary
+) {
+    var selectedDay by remember { mutableStateOf(LocalDate.now().dayOfWeek) }
+
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Left: Full day name with emphasized first letter, animated crossfade on change
+        androidx.compose.animation.Crossfade(
+            targetState = selectedDay,
+            animationSpec = tween(durationMillis = 200)
+        ) { day ->
+            val name = day.getDisplayName(TextStyle.FULL, Locale.getDefault())
+            val annotated = buildAnnotatedString {
+                if (name.isNotEmpty()) {
+                    withStyle(
+                        MaterialTheme.typography.displaySmall.copy(
+                            fontWeight = FontWeight.ExtraBold,
+                            color = textColor
+                        ).toSpanStyle().copy(fontSize = 42.sp)
+                    ) { append(name.first()) }
+                    append(" ")
+                    withStyle(
+                        MaterialTheme.typography.headlineMedium.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            color = textColor
+                        ).toSpanStyle()
+                    ) { append(name.drop(1)) }
+                }
+            }
+            Text(text = annotated)
+        }
+
+        // Right: Remaining day initials (excluding selected), clickable to switch selection
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            DayOfWeek.values()
+                .filter { it != selectedDay }
+                .forEach { day ->
+                    val label = day.getDisplayName(TextStyle.NARROW, Locale.getDefault())
+                    Box(
+                        modifier = Modifier
+                            .size(26.dp)
+                            .border(1.dp, textColor.copy(alpha = 0.5f), CircleShape)
+                            .clickable { selectedDay = day },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = label,
+                            color = textColor,
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 1
+                        )
+                    }
+                }
+        }
     }
 }
