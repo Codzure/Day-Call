@@ -2,13 +2,18 @@ package com.codzuregroup.daycall.ui.alarm
 
 import androidx.compose.animation.core.*
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.material.ripple.rememberRipple
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -21,8 +26,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -69,23 +78,10 @@ fun AlarmListScreen(
         modifier = Modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
         floatingActionButton = {
-            FloatingActionButton(
+            DelightfulFloatingActionButton(
                 onClick = onAddAlarm,
-                containerColor = MaterialTheme.colorScheme.primary,
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.shadow(
-                    12.dp,
-                    spotColor = MaterialTheme.colorScheme.primary,
-                    shape = RoundedCornerShape(16.dp)
-                )
-            ) {
-                Icon(
-                    Icons.Default.Add,
-                    contentDescription = "Add Alarm",
-                    tint = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.size(28.dp)
-                )
-            }
+                alarmCount = alarms.size
+            )
         }
     ) { paddingValues ->
         LazyColumn(
@@ -100,13 +96,11 @@ fun AlarmListScreen(
                 HomeAppBar(viewModel = viewModel)
                 Spacer(modifier = Modifier.height(16.dp))
                 CurrentTimeCard(alarms = enabledAlarms)
-
-
             }
 
             if (alarms.isEmpty()) {
                 item {
-                    EmptyAlarmState(
+                    DelightfulEmptyState(
                         onAddAlarm = onAddAlarm,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -117,9 +111,10 @@ fun AlarmListScreen(
                         SectionHeader(title = "Active Alarms (${enabledAlarms.size})")
                     }
 
-                    items(enabledAlarms) { alarm ->
-                        RealAlarmItem(
+                    itemsIndexed(enabledAlarms) { index, alarm ->
+                        DelightfulAlarmItem(
                             alarm = alarm,
+                            index = index,
                             onToggle = { viewModel.toggleEnabled(alarm, !alarm.enabled) },
                             onClick = { onEditAlarm(alarm.id) }
                         )
@@ -131,9 +126,10 @@ fun AlarmListScreen(
                         SectionHeader(title = "Disabled Alarms (${disabledAlarms.size})")
                     }
 
-                    items(disabledAlarms) { alarm ->
-                        RealAlarmItem(
+                    itemsIndexed(disabledAlarms) { index, alarm ->
+                        DelightfulAlarmItem(
                             alarm = alarm,
+                            index = index + enabledAlarms.size,
                             onToggle = { viewModel.toggleEnabled(alarm, !alarm.enabled) },
                             onClick = { onEditAlarm(alarm.id) }
                         )
@@ -145,8 +141,118 @@ fun AlarmListScreen(
 }
 
 @Composable
+fun DelightfulFloatingActionButton(
+    onClick: () -> Unit,
+    alarmCount: Int
+) {
+    val haptic = LocalHapticFeedback.current
+    val scope = rememberCoroutineScope()
+    var isPressed by remember { mutableStateOf(false) }
+    
+    // Enhanced floating animation with more natural movement
+    val floatAnimation by rememberInfiniteTransition(label = "float").animateFloat(
+        initialValue = 0f,
+        targetValue = 12f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(3000, easing = EaseInOutSine),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "float"
+    )
+    
+    // Enhanced scale animation for press with better feedback
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.85f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "scale"
+    )
+    
+    // Gentle rotation animation for empty state
+    val rotation by rememberInfiniteTransition(label = "rotation").animateFloat(
+        initialValue = -3f,
+        targetValue = 3f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000, easing = EaseInOutSine),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "rotation"
+    )
+    
+    // Pulse animation for the icon
+    val iconPulse by rememberInfiniteTransition(label = "icon_pulse").animateFloat(
+        initialValue = 1f,
+        targetValue = 1.1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1500, easing = EaseInOutSine),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "icon_pulse"
+    )
+    
+    FloatingActionButton(
+        onClick = {
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            onClick()
+        },
+        containerColor = MaterialTheme.colorScheme.primary,
+        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier
+            .graphicsLayer {
+                translationY = -floatAnimation
+                scaleX = scale
+                scaleY = scale
+                rotationZ = if (alarmCount == 0) rotation else 0f
+            }
+            .shadow(
+                elevation = 16.dp,
+                spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
+                shape = RoundedCornerShape(20.dp)
+            )
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(if (alarmCount == 0) 12.dp else 0.dp)
+        ) {
+            // Enhanced icon with pulse animation
+            Icon(
+                Icons.Default.Add,
+                contentDescription = "Add Alarm",
+                tint = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier
+                    .size(if (alarmCount == 0) 32.dp else 28.dp)
+                    .scale(iconPulse)
+            )
+            
+            // Enhanced text for first alarm
+            if (alarmCount == 0) {
+                Text(
+                    text = "Start",
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    fontWeight = FontWeight.ExtraBold,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        letterSpacing = 0.5.sp
+                    )
+                )
+            }
+        }
+    }
+}
+
+@Composable
 fun HomeAppBar(viewModel: AlarmViewModel) {
     var userName by remember { mutableStateOf("User") }
+    var greeting by remember { mutableStateOf(getGreeting()) }
+    
+    // Update greeting every 30 minutes to keep it fresh but stable
+    LaunchedEffect(Unit) {
+        while (true) {
+            greeting = getGreeting()
+            delay(30 * 60 * 1000L) // 30 minutes
+        }
+    }
 
     LaunchedEffect(Unit) {
         UserManager.getCurrentUser().collect { name ->
@@ -162,7 +268,7 @@ fun HomeAppBar(viewModel: AlarmViewModel) {
     ) {
         Column {
             Text(
-                text = getGreeting(),
+                text = greeting,
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -276,13 +382,25 @@ fun CurrentTimeCard(alarms: List<AlarmEntity>) {
                 Row(
                     verticalAlignment = Alignment.Bottom
                 ) {
+                    // Animated time display
+                    val timeScale by rememberInfiniteTransition(label = "time").animateFloat(
+                        initialValue = 1f,
+                        targetValue = 1.02f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(2000, easing = EaseInOutSine),
+                            repeatMode = RepeatMode.Reverse
+                        ),
+                        label = "time_scale"
+                    )
+                    
                     Text(
                         text = currentTime.format(timeFormatter),
                         style = MaterialTheme.typography.displayLarge.copy(
                             fontSize = 56.sp,
                             fontWeight = FontWeight.Bold
                         ),
-                        color = Color.White
+                        color = Color.White,
+                        modifier = Modifier.scale(timeScale)
                     )
                     if (timeFormat == TimeFormat.HOUR_12) {
                         Spacer(modifier = Modifier.width(8.dp))
@@ -295,10 +413,22 @@ fun CurrentTimeCard(alarms: List<AlarmEntity>) {
                     }
                     Spacer(modifier = Modifier.weight(1f))
                     selectedVibe?.let { vibe ->
+                        // Animated vibe icon
+                        val vibeRotation by rememberInfiniteTransition(label = "vibe_rotation").animateFloat(
+                            initialValue = -10f,
+                            targetValue = 10f,
+                            animationSpec = infiniteRepeatable(
+                                animation = tween(3000, easing = EaseInOutSine),
+                                repeatMode = RepeatMode.Reverse
+                            ),
+                            label = "vibe_rotation"
+                        )
+                        
                         Text(
                             text = vibe.icon,
                             fontSize = 24.sp,
-                            color = Color.White.copy(alpha = 0.9f)
+                            color = Color.White.copy(alpha = 0.9f),
+                            modifier = Modifier.rotate(vibeRotation)
                         )
                     }
                 }
@@ -409,6 +539,180 @@ fun HomeBottomNavigation(selectedTab: Int, onTabSelected: (Int) -> Unit) {
 }
 
 @Composable
+fun DelightfulEmptyState(onAddAlarm: () -> Unit, modifier: Modifier = Modifier) {
+    val haptic = LocalHapticFeedback.current
+    
+    // Floating animation for the icon
+    val floatOffset by rememberInfiniteTransition(label = "float").animateFloat(
+        initialValue = 0f,
+        targetValue = 20f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(3000, easing = EaseInOutSine),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "float"
+    )
+    
+    // Scale animation for the icon
+    val iconScale by rememberInfiniteTransition(label = "scale").animateFloat(
+        initialValue = 1f,
+        targetValue = 1.1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2000, easing = EaseInOutSine),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "scale"
+    )
+    
+    // Entrance animation
+    var isVisible by remember { mutableStateOf(false) }
+    
+    LaunchedEffect(Unit) {
+        delay(300)
+        isVisible = true
+    }
+    
+    val entranceScale by animateFloatAsState(
+        targetValue = if (isVisible) 1f else 0.8f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "entrance"
+    )
+    
+    val entranceAlpha by animateFloatAsState(
+        targetValue = if (isVisible) 1f else 0f,
+        animationSpec = tween(800),
+        label = "alpha"
+    )
+    
+    Column(
+        modifier = modifier
+            .padding(vertical = 32.dp)
+            .graphicsLayer {
+                scaleX = entranceScale
+                scaleY = entranceScale
+                alpha = entranceAlpha
+            },
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        // Animated empty state messages
+        val emptyMessages = listOf(
+            "🌅 Ready to Start Your Day?",
+            "⏰ Time for Your First Alarm!",
+            "✨ Let's Create Some Magic!",
+            "🚀 Your Journey Begins Here!",
+            "💫 Time to Wake Up Your Dreams!"
+        )
+        
+        var currentMessageIndex by remember { mutableStateOf(0) }
+        
+        LaunchedEffect(Unit) {
+            while (true) {
+                delay(3000)
+                currentMessageIndex = (currentMessageIndex + 1) % emptyMessages.size
+            }
+        }
+        
+        // Floating alarm icon
+        Icon(
+            Icons.Outlined.AlarmOff,
+            contentDescription = null,
+            modifier = Modifier
+                .size(80.dp)
+                .graphicsLayer {
+                    translationY = -floatOffset
+                    scaleX = iconScale
+                    scaleY = iconScale
+                },
+            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+        )
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        // Animated message
+        androidx.compose.animation.Crossfade(
+            targetState = currentMessageIndex,
+            animationSpec = tween(500)
+        ) { messageIndex ->
+            Text(
+                text = emptyMessages[messageIndex],
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Center
+            )
+        }
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        Text(
+            text = "Create your first alarm and transform your mornings into something extraordinary. Every great day starts with the perfect wake-up call!",
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 32.dp)
+        )
+        
+        Spacer(modifier = Modifier.height(32.dp))
+        
+        // Delightful action button
+        var isPressed by remember { mutableStateOf(false) }
+        
+        val buttonScale by animateFloatAsState(
+            targetValue = if (isPressed) 0.95f else 1f,
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessMedium
+            ),
+            label = "button"
+        )
+        
+        Button(
+            onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                onAddAlarm()
+            },
+            shape = RoundedCornerShape(20.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary
+            ),
+            modifier = Modifier
+                .scale(buttonScale)
+                .shadow(
+                    elevation = 12.dp,
+                    spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
+                    shape = RoundedCornerShape(20.dp)
+                )
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Icon(
+                    Icons.Default.Add,
+                    contentDescription = null,
+                    modifier = Modifier.size(24.dp)
+                )
+                Text(
+                    "Create My First Alarm",
+                    fontWeight = FontWeight.ExtraBold,
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        letterSpacing = 0.5.sp
+                    )
+                )
+                Text(
+                    "✨",
+                    fontSize = 18.sp
+                )
+            }
+        }
+    }
+}
+
+@Composable
 fun EmptyAlarmState(onAddAlarm: () -> Unit, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier.padding(vertical = 32.dp),
@@ -446,6 +750,294 @@ fun EmptyAlarmState(onAddAlarm: () -> Unit, modifier: Modifier = Modifier) {
             Text("Add First Alarm")
         }
     }
+}
+
+@Composable
+fun DelightfulAlarmItem(
+    alarm: AlarmEntity,
+    index: Int,
+    onToggle: () -> Unit,
+    onClick: () -> Unit
+) {
+    val haptic = LocalHapticFeedback.current
+    var isToggling by remember { mutableStateOf(false) }
+    
+    // Staggered entrance animation
+    val visibilityDelay = (index * 150).toLong()
+    var isVisible by remember { mutableStateOf(false) }
+    
+    LaunchedEffect(Unit) {
+        delay(visibilityDelay)
+        isVisible = true
+    }
+    
+    // Slide in animation
+    val slideOffset by animateFloatAsState(
+        targetValue = if (isVisible) 0f else 300f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "slide"
+    )
+    
+    // Gentle floating animation
+    val floatOffset by rememberInfiniteTransition(label = "float").animateFloat(
+        initialValue = 0f,
+        targetValue = 2f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(
+                durationMillis = 3000 + (index * 200), // Varied timing
+                easing = EaseInOutSine
+            ),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "float"
+    )
+    
+    // Toggle animation
+    val toggleScale by animateFloatAsState(
+        targetValue = if (isToggling) 1.1f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessHigh
+        ),
+        finishedListener = { isToggling = false },
+        label = "toggle"
+    )
+    
+    // Celebration animation for enabled alarms
+    val celebrationRotation by rememberInfiniteTransition(label = "celebration").animateFloat(
+        initialValue = -2f,
+        targetValue = 2f,
+        animationSpec = if (alarm.enabled) {
+            infiniteRepeatable(
+                animation = tween(1000, easing = EaseInOutSine),
+                repeatMode = RepeatMode.Reverse
+            )
+        } else {
+            infiniteRepeatable(
+                animation = tween(0),
+                repeatMode = RepeatMode.Restart
+            )
+        },
+        label = "celebration"
+    )
+    
+    DelightfulAlarmItemContent(
+        alarm = alarm,
+        modifier = Modifier
+            .graphicsLayer {
+                translationX = slideOffset
+                translationY = -floatOffset
+                scaleX = toggleScale
+                scaleY = toggleScale
+                rotationZ = celebrationRotation
+                alpha = if (isVisible) 1f else 0f
+            },
+        onToggle = {
+            isToggling = true
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            onToggle()
+        },
+        onClick = {
+            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            onClick()
+        }
+    )
+}
+
+@Composable
+fun DelightfulAlarmItemContent(
+    alarm: AlarmEntity,
+    modifier: Modifier = Modifier,
+    onToggle: () -> Unit,
+    onClick: () -> Unit
+) {
+    val time = alarm.toLocalTime()
+    val context = LocalContext.current
+    val settingsManager = remember { SettingsManager.getInstance(context) }
+    val timeFormat by settingsManager.timeFormat.collectAsStateWithLifecycle()
+    
+    val timeFormatter = when (timeFormat) {
+        TimeFormat.HOUR_12 -> DateTimeFormatter.ofPattern("hh:mm")
+        TimeFormat.HOUR_24 -> DateTimeFormatter.ofPattern("HH:mm")
+        else -> DateTimeFormatter.ofPattern("hh:mm")
+    }
+    val periodFormatter = DateTimeFormatter.ofPattern("a")
+    
+    val formattedTime = time.format(timeFormatter)
+    val period = time.format(periodFormatter)
+    
+    // Animated background color
+    val backgroundColor by animateColorAsState(
+        targetValue = MaterialTheme.colorScheme.surfaceVariant.copy(
+            alpha = if (alarm.enabled) 1f else 0.6f
+        ),
+        animationSpec = tween(500),
+        label = "background"
+    )
+    
+    DayCallCard(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        background = backgroundColor,
+        elevation = if (alarm.enabled) 8 else 2
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Animated alarm icon
+            val iconScale by rememberInfiniteTransition(label = "icon").animateFloat(
+                initialValue = 1f,
+                targetValue = if (alarm.enabled) 1.1f else 1f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(2000, easing = EaseInOutSine),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "icon_scale"
+            )
+            
+            Text(
+                text = if (alarm.enabled) "⏰" else "⏰",
+                fontSize = 28.sp,
+                modifier = Modifier
+                    .background(
+                        MaterialTheme.colorScheme.primary.copy(alpha = if (alarm.enabled) 0.2f else 0.1f),
+                        CircleShape
+                    )
+                    .padding(8.dp)
+                    .scale(iconScale)
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        text = formattedTime,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    if (timeFormat == TimeFormat.HOUR_12) {
+                        Text(
+                            text = period,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
+                        )
+                    }
+                }
+                
+                Text(
+                    text = "${alarm.label ?: "Alarm"} • ${formatRepeatDays(alarm.repeatDays)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                
+                // Show vibe information with animation
+                val vibe = VibeDefaults.availableVibes.find { it.id == alarm.vibe }
+                if (vibe != null) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(top = 4.dp)
+                    ) {
+                        val vibeScale by rememberInfiniteTransition(label = "vibe").animateFloat(
+                            initialValue = 0.9f,
+                            targetValue = 1.1f,
+                            animationSpec = infiniteRepeatable(
+                                animation = tween(2500, easing = EaseInOutSine),
+                                repeatMode = RepeatMode.Reverse
+                            ),
+                            label = "vibe_scale"
+                        )
+                        
+                        Box(
+                            modifier = Modifier
+                                .size(16.dp)
+                                .scale(vibeScale)
+                                .background(
+                                    brush = Brush.linearGradient(
+                                        colors = listOf(
+                                            vibe.gradientStart,
+                                            vibe.gradientEnd
+                                        )
+                                    ),
+                                    shape = CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = vibe.icon,
+                                fontSize = 8.sp
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = vibe.name,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+            
+            // Delightful toggle switch
+            DelightfulSwitch(
+                checked = alarm.enabled,
+                onCheckedChange = { onToggle() }
+            )
+        }
+    }
+}
+
+@Composable
+fun DelightfulSwitch(
+    checked: Boolean,
+    onCheckedChange: () -> Unit
+) {
+    val haptic = LocalHapticFeedback.current
+    
+    // Thumb animation
+    val thumbScale by animateFloatAsState(
+        targetValue = if (checked) 1.2f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "thumb"
+    )
+    
+    // Track color animation
+    val trackColor by animateColorAsState(
+        targetValue = if (checked) 
+            MaterialTheme.colorScheme.primaryContainer 
+        else 
+            MaterialTheme.colorScheme.surfaceContainerHighest,
+        animationSpec = tween(300),
+        label = "track"
+    )
+    
+    Switch(
+        checked = checked,
+        onCheckedChange = { 
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            onCheckedChange() 
+        },
+        modifier = Modifier.scale(thumbScale),
+        colors = SwitchDefaults.colors(
+            checkedThumbColor = MaterialTheme.colorScheme.primary,
+            checkedTrackColor = trackColor,
+            uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            uncheckedTrackColor = trackColor
+        )
+    )
 }
 
 @Composable
@@ -578,12 +1170,53 @@ fun formatRepeatDays(repeatDays: Int): String {
 
 
 private fun getGreeting(): String {
-    return when (LocalTime.now().hour) {
-        in 0..5 -> "Good Night"
-        in 6..11 -> "Good Morning"
-        in 12..17 -> "Good Afternoon"
-        else -> "Good Evening"
+    val now = LocalTime.now()
+    val hour = now.hour
+    val minute = now.minute
+    
+    // Create deterministic index based on time (changes every 30 minutes)
+    val timeSlot = (hour * 2) + (minute / 30)
+    
+    val playfulGreetings = when (hour) {
+        in 0..4 -> listOf(
+            "🌙 Sweet Dreams",
+            "✨ Night Owl Mode",
+            "🌟 Burning the Midnight Oil",
+            "🦉 Late Night Vibes",
+            "💫 Dreaming Time"
+        )
+        in 5..6 -> listOf(
+            "🌅 Early Bird!",
+            "☀️ Rise & Shine",
+            "🐓 Sunrise Warrior",
+            "⭐ Dawn Breaker",
+            "🌄 Morning Glory"
+        )
+        in 7..11 -> listOf(
+            "☕ Good Morning",
+            "🌻 Fresh Start",
+            "🦋 Morning Magic",
+            "🌈 New Day Energy",
+            "☀️ Sunshine Time"
+        )
+        in 12..17 -> listOf(
+            "🌞 Good Afternoon",
+            "⚡ Midday Power",
+            "🌺 Afternoon Vibes",
+            "🎯 Peak Performance",
+            "🚀 Afternoon Drive"
+        )
+        else -> listOf(
+            "🌅 Good Evening",
+            "🌙 Twilight Time",
+            "⭐ Evening Glow",
+            "🎭 Night Begins",
+            "🌃 City Lights"
+        )
     }
+    
+    // Use deterministic selection based on time slot
+    return playfulGreetings[timeSlot % playfulGreetings.size]
 }
 
 @Composable

@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -6,14 +8,21 @@ plugins {
 }
 
 // Version configuration
-val appVersionCode = 10001
-val appVersionName = "1.0.1"
+val appVersionCode = 10002
+val appVersionName = "1.0.2"
 val buildNumber = System.getenv("BUILD_NUMBER")?.toIntOrNull() ?: 1
 val gitCommitHash = System.getenv("GIT_COMMIT_HASH") ?: "dev"
 
 android {
     namespace = "com.codzuregroup.daycall"
     compileSdk = 36
+    
+    // Load keystore properties
+    val keystorePropertiesFile = rootProject.file("keystore.properties")
+    val keystoreProperties = Properties()
+    if (keystorePropertiesFile.exists()) {
+        keystoreProperties.load(keystorePropertiesFile.inputStream())
+    }
 
     defaultConfig {
         applicationId = "com.codzuregroup.daycall"
@@ -28,6 +37,38 @@ android {
         buildConfigField("String", "BUILD_DATE", "\"${System.currentTimeMillis()}\"")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+    
+    signingConfigs {
+        create("release") {
+            if (keystorePropertiesFile.exists()) {
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+                
+                // Enable V1 and V2 signature schemes
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
+                enableV4Signing = true
+            }
+        }
+        
+        create("upload") {
+            if (keystorePropertiesFile.exists() && keystoreProperties.containsKey("uploadStoreFile")) {
+                keyAlias = keystoreProperties.getProperty("uploadKeyAlias")
+                keyPassword = keystoreProperties.getProperty("uploadKeyPassword")
+                storeFile = file(keystoreProperties.getProperty("uploadStoreFile"))
+                storePassword = keystoreProperties.getProperty("uploadStorePassword")
+                
+                // Enable V1 and V2 signature schemes
+                enableV1Signing = true
+                enableV2Signing = true
+                enableV3Signing = true
+                enableV4Signing = true
+            }
+        }
     }
 
     buildTypes {
@@ -52,6 +93,9 @@ android {
                 "proguard-rules.pro"
             )
             
+            // Apply signing configuration
+            signingConfig = signingConfigs.getByName("release")
+            
             // Release-specific configurations
             buildConfigField("boolean", "ENABLE_LOGGING", "false")
             buildConfigField("boolean", "ENABLE_CRASH_REPORTING", "true")
@@ -66,6 +110,9 @@ android {
             isDebuggable = true
             isMinifyEnabled = false
             isShrinkResources = false
+            
+            // Apply signing configuration
+            signingConfig = signingConfigs.getByName("release")
             
             buildConfigField("boolean", "ENABLE_LOGGING", "true")
             buildConfigField("boolean", "ENABLE_CRASH_REPORTING", "true")
@@ -197,6 +244,8 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     implementation(libs.androidx.work.runtime.ktx)
     implementation(libs.com.google.exoplayer)
+    implementation("com.google.android.play:app-update:2.1.0")
+    implementation("com.google.android.play:app-update-ktx:2.1.0")
     coreLibraryDesugaring(libs.desugar.jdk.libs)
     androidTestImplementation("androidx.compose.ui:ui-test-junit4:1.6.7")
     debugImplementation("androidx.compose.ui:ui-test-manifest:1.6.7")

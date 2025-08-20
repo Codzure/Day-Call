@@ -83,8 +83,13 @@ import android.content.Context
 import androidx.annotation.RequiresApi
 import com.codzuregroup.daycall.ui.todo.AddTaskScreenMinimal
 import com.codzuregroup.daycall.ui.todo.CompletedTodosScreen
+import com.codzuregroup.daycall.ui.update.UpdateViewModel
+import com.codzuregroup.daycall.ui.update.UpdateDialog
+import com.codzuregroup.daycall.update.InAppUpdateManager
 
 class MainActivity : ComponentActivity() {
+    
+    private lateinit var updateManager: InAppUpdateManager
     
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -116,6 +121,9 @@ class MainActivity : ComponentActivity() {
         
         // Check if alarm is currently active
         checkActiveAlarm()
+        
+        // Initialize update manager
+        updateManager = InAppUpdateManager(this)
         
         UserManager.initialize(this)
         VibeManager.initialize(this)
@@ -203,6 +211,7 @@ fun DayCallApp() {
     val backstack = remember { mutableStateListOf<Screen>() }
     var selectedTab by remember { mutableStateOf(0) }
     val viewModel: AlarmViewModel = viewModel()
+    val updateViewModel: UpdateViewModel = viewModel()
     var isForward by remember { mutableStateOf(true) }
 
     fun navigate(screen: Screen) {
@@ -217,13 +226,19 @@ fun DayCallApp() {
     fun popBack() {
         if (backstack.size > 1) {
             isForward = false
-            backstack.removeLast()
+            backstack.removeAt(backstack.lastIndex)
         }
     }
 
     // Start with splash screen
     LaunchedEffect(Unit) {
         replaceRoot(Screen.Splash)
+    }
+    
+    // Check for updates when app starts
+    LaunchedEffect(Unit) {
+        delay(3000) // Wait a bit after app starts
+        updateViewModel.checkForUpdates()
     }
 
     val currentScreen: Screen? = backstack.lastOrNull()

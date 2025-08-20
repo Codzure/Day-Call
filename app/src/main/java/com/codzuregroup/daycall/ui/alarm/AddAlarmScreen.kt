@@ -84,7 +84,7 @@ fun AddAlarmScreen(
     }
     var selectedTime by remember { mutableStateOf(LocalTime.now()) }
     var alarmLabel by remember { mutableStateOf("") }
-    var selectedDays by remember { mutableStateOf(emptySet<DayOfWeek>()) }
+    var selectedDays by remember { mutableStateOf(setOf(java.time.LocalDate.now().dayOfWeek)) }
     var selectedChallenge by remember { mutableStateOf(ChallengeType.MATH) }
     var selectedSound by remember { mutableStateOf(AudioManager.availableAudioFiles.first().displayName) }
     var selectedVibe by remember { 

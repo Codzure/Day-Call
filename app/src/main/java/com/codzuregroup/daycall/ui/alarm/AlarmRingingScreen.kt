@@ -77,7 +77,7 @@ fun createConfettiParticles(): List<ConfettiParticle> {
         Color(0xFF85C1E9)  // Light Blue
     )
     
-return List(30) { index ->
+    return List(30) { index ->
         ConfettiParticle(
             id = index,
             x = Random.nextFloat() * 360f, // within typical phone width; will still look fine on wider
@@ -124,6 +124,7 @@ fun AlarmRingingScreen(
     var showIncorrectFeedback by remember { mutableStateOf(false) }
     var confettiParticles by remember { mutableStateOf(listOf<ConfettiParticle>()) }
     var shakeOffset by remember { mutableStateOf(0f) }
+    var celebrationMessage by remember { mutableStateOf("") }
     
     val haptic = LocalHapticFeedback.current
     val vibrationManager = remember { VibrationManager(context) }
@@ -157,6 +158,20 @@ fun AlarmRingingScreen(
         label = "glow"
     )
 
+    // Celebration messages
+    val celebrationMessages = listOf(
+        "🎉 Amazing! You're unstoppable!",
+        "🌟 Brilliant! Your brain is on fire!",
+        "🚀 Fantastic! You crushed it!",
+        "💫 Incredible! Pure genius!",
+        "🎊 Outstanding! You're a champion!",
+        "⭐ Phenomenal! Mind-blowing skills!",
+        "🏆 Spectacular! You're legendary!",
+        "✨ Magnificent! Pure excellence!",
+        "🔥 Extraordinary! You're on fire!",
+        "💎 Perfect! Diamond-level thinking!"
+    )
+    
     // Start playing audio when screen loads
     LaunchedEffect(Unit) {
         actualAudioManager.playAudio(audioFile)
@@ -178,70 +193,109 @@ fun AlarmRingingScreen(
         if (timeRemaining <= 0 && !isCorrect) {
             showError = true
             challengeAttempts++
+            
+            // Playful timeout messages
+            val timeoutMessages = listOf(
+                "⏰ Time's up! But don't worry!",
+                "⌛ Time flew by! Let's try again!",
+                "🕐 Time ran out! You're still awesome!",
+                "⏱️ Time's up! Ready for round 2?",
+                "🕙 Time expired! You've got this!",
+                "⏲️ Time's up! Let's shake it up!",
+                "🕛 Time's gone! New challenge awaits!",
+                "⏳ Time's up! Fresh start!",
+                "🕐 Time expired! Let's try something new!",
+                "⏰ Time's up! New adventure awaits!"
+            )
+            
+            celebrationMessage = timeoutMessages[Random.nextInt(timeoutMessages.size)]
+            
             if (vibrationEnabled) {
                 vibrationManager.vibrateChallengeTimeout()
             }
             // Show new challenge button instead of auto-generating
             showNewChallengeButton = true
+            
+            // Clear the timeout message after a few seconds
+            scope.launch {
+                delay(3000)
+                celebrationMessage = ""
+            }
         }
     }
 
     // Volume increase over time - more gradual and responsive
-    LaunchedEffect(Unit) {
-        var volumeIncreaseInterval = 3000L // Start with 3 seconds
+    LaunchedEffect(currentChallenge) {
         var urgencyLevel = 0
-        
         while (!canDismiss) {
+            val volumeIncreaseInterval = maxOf(3000L - (urgencyLevel * 500L), 500L) // 3s -> 0.5s
             delay(volumeIncreaseInterval)
-            if (!canDismiss) { // Double check before increasing volume
-                actualAudioManager.increaseVolume()
+            
+            if (!canDismiss) {
+                volume = minOf(volume + 0.1f, 1.0f)
                 urgencyLevel++
                 
-                // Increase urgency and frequency over time
-                if (urgencyLevel >= 5) {
-                    volumeIncreaseInterval = 2000L // Every 2 seconds after 15 seconds
+                // Playful volume warning messages
+                if (volume > 0.8f && !showVolumeWarning) {
+                    showVolumeWarning = true
+                    val volumeWarnings = listOf(
+                        "🔊 Volume getting louder!",
+                        "📢 Sound intensifying!",
+                        "🔊 Getting noisier!",
+                        "📢 Volume ramping up!",
+                        "🔊 Sound level rising!",
+                        "📢 Getting louder!",
+                        "🔊 Volume increasing!",
+                        "📢 Sound amplifying!",
+                        "🔊 Getting more intense!",
+                        "📢 Volume climbing!"
+                    )
+                    celebrationMessage = volumeWarnings[Random.nextInt(volumeWarnings.size)]
+                    
+                    scope.launch {
+                        delay(2000)
+                        celebrationMessage = ""
+                    }
                 }
-                if (urgencyLevel >= 10) {
-                    volumeIncreaseInterval = 1000L // Every 1 second after 25 seconds
-                }
-                if (urgencyLevel >= 15) {
-                    volumeIncreaseInterval = 500L // Every 0.5 seconds after 30 seconds
-                }
-                
-                if (vibrationEnabled) {
-                    vibrationManager.vibrateVolumeIncrease()
-                }
-                
-                Log.d("AlarmRingingScreen", "Volume increased - Level: $urgencyLevel, Interval: ${volumeIncreaseInterval}ms")
             }
         }
     }
     
-    // Urgency vibration that increases over time - more gradual
-    LaunchedEffect(Unit) {
+    // Urgency vibration loop - more intense over time
+    LaunchedEffect(currentChallenge) {
         var urgencyLevel = 0
-        var vibrationInterval = 8000L // Start with 8 seconds
-        
         while (!canDismiss) {
+            val vibrationInterval = maxOf(8000L - (urgencyLevel * 1000L), 2000L) // 8s -> 2s
             delay(vibrationInterval)
+            
             if (!canDismiss) {
                 urgencyLevel++
                 
-                // Increase vibration frequency over time
+                // Playful urgency messages
                 if (urgencyLevel >= 3) {
-                    vibrationInterval = 6000L // Every 6 seconds after 24 seconds
-                }
-                if (urgencyLevel >= 6) {
-                    vibrationInterval = 4000L // Every 4 seconds after 36 seconds
-                }
-                if (urgencyLevel >= 9) {
-                    vibrationInterval = 2000L // Every 2 seconds after 48 seconds
+                    val urgencyMessages = listOf(
+                        "⚡ Urgency increasing!",
+                        "🔥 Getting more urgent!",
+                        "⚡ Time is ticking!",
+                        "🔥 Urgency rising!",
+                        "⚡ Getting more intense!",
+                        "🔥 Time pressure building!",
+                        "⚡ Urgency climbing!",
+                        "🔥 Getting more urgent!",
+                        "⚡ Time is running!",
+                        "🔥 Urgency intensifying!"
+                    )
+                    celebrationMessage = urgencyMessages[Random.nextInt(urgencyMessages.size)]
+                    
+                    scope.launch {
+                        delay(2000)
+                        celebrationMessage = ""
+                    }
                 }
                 
                 if (vibrationEnabled) {
                     val intensity = (0.3f + (urgencyLevel * 0.05f)).coerceAtMost(1.0f)
                     vibrationManager.vibrateAlarmUrgency(intensity)
-                    Log.d("AlarmRingingScreen", "Urgency vibration - Level: $urgencyLevel, Intensity: $intensity")
                 }
             }
         }
@@ -261,10 +315,11 @@ fun AlarmRingingScreen(
         }
     }
     
-// Feedback functions
+    // Feedback functions
     fun showCorrectAnswerFeedback(onComplete: (() -> Unit)? = null) {
         showCorrectFeedback = true
         confettiParticles = createConfettiParticles()
+        
         // Start confetti animation loop
         scope.launch {
             while (showCorrectFeedback) {
@@ -281,33 +336,49 @@ fun AlarmRingingScreen(
                 delay(16)
             }
         }
-        isTTSSpeaking = true
-        onTTSStateChanged?.invoke(true)
         
-        // Speak celebration message and wait for completion
-        val userName = settingsManager.userName.value
-        textToSpeechManager.speakCelebration(userName) {
-            // TTS completed, now we can proceed with dismissal
-            isTTSSpeaking = false
-            onTTSStateChanged?.invoke(false)
-            scope.launch {
-                // Keep confetti visible for a bit longer after TTS completes
-                delay(1000)
-                showCorrectFeedback = false
-                confettiParticles = emptyList()
-                onComplete?.invoke()
-            }
-        }
+        // Select a random celebration message
+        celebrationMessage = celebrationMessages[Random.nextInt(celebrationMessages.size)]
         
         if (vibrationEnabled) {
             vibrationManager.vibrateCorrectAnswer()
         } else {
             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
         }
+        
+        scope.launch {
+            delay(3000) // Show celebration for 3 seconds
+            showCorrectFeedback = false
+            confettiParticles = emptyList()
+            onComplete?.invoke() // Call the completion callback
+        }
     }
     
     fun showIncorrectAnswerFeedback() {
         showIncorrectFeedback = true
+        shakeOffset = 10f
+        
+        // Encouraging messages for incorrect answers
+        val encouragingMessages = listOf(
+            "🤔 Almost there! Try again!",
+            "💪 You've got this! Keep going!",
+            "🎯 Close! Give it another shot!",
+            "🌟 Not quite, but you're learning!",
+            "🚀 Almost got it! One more try!",
+            "💡 Good attempt! Think differently!",
+            "🎪 Nice try! Let's try again!",
+            "🌈 You're getting warmer!",
+            "⚡ Almost! Don't give up!",
+            "🎨 Creative thinking! Try again!"
+        )
+        
+        // Show a random encouraging message
+        scope.launch {
+            delay(500)
+            celebrationMessage = encouragingMessages[Random.nextInt(encouragingMessages.size)]
+            delay(2000)
+            celebrationMessage = ""
+        }
         
         if (vibrationEnabled) {
             vibrationManager.vibrateIncorrectAnswer()
@@ -315,16 +386,10 @@ fun AlarmRingingScreen(
             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
         }
         
-        // Shake animation
         scope.launch {
-            repeat(3) {
-                shakeOffset = 10f
-                delay(50)
-                shakeOffset = -10f
-                delay(50)
-            }
-            shakeOffset = 0f
+            delay(1000)
             showIncorrectFeedback = false
+            shakeOffset = 0f
         }
     }
 
@@ -336,7 +401,30 @@ fun AlarmRingingScreen(
         // Don't hide the button - keep it visible until challenge is solved
         // showNewChallengeButton = false
         timeRemaining = 30
+        
+        // Playful new challenge messages
+        val newChallengeMessages = listOf(
+            "🎲 New challenge incoming!",
+            "🔄 Switching it up!",
+            "🎯 Fresh challenge ready!",
+            "🌟 New puzzle awaits!",
+            "🚀 Challenge reloaded!",
+            "✨ New adventure begins!",
+            "🎪 Different challenge time!",
+            "🌈 New colors, new challenge!",
+            "⚡ Fresh energy, new puzzle!",
+            "💎 New challenge unlocked!"
+        )
+        
+        celebrationMessage = newChallengeMessages[Random.nextInt(newChallengeMessages.size)]
+        
         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        
+        // Clear the message after a few seconds
+        scope.launch {
+            delay(2000)
+            celebrationMessage = ""
+        }
     }
     
     // Cleanup when leaving
@@ -650,13 +738,13 @@ fun AlarmRingingScreen(
                                     onAnswerChange = { userAnswer = it },
                                     onAnswerSubmit = {
                                         isCorrect = userAnswer == challenge.correctAnswer
-if (isCorrect) {
-    canDismiss = true
-    onChallengeSolved()
-    showCorrectAnswerFeedback {
-        onDismiss()
-    }
-} else {
+                                        if (isCorrect) {
+                                            canDismiss = true
+                                            onChallengeSolved()
+                                            showCorrectAnswerFeedback {
+                                                onDismiss()
+                                            }
+                                        } else {
                                             showIncorrectAnswerFeedback()
                                             showError = true
                                             scope.launch {
@@ -827,6 +915,36 @@ if (isCorrect) {
         // Confetti overlay for correct answers
         if (showCorrectFeedback) {
             Box(modifier = Modifier.fillMaxSize()) {
+                // Celebration message
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 100.dp)
+                ) {
+                    Card(
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color(0xFF4CAF50).copy(alpha = 0.95f)
+                        ),
+                        shape = RoundedCornerShape(25.dp),
+                        modifier = Modifier
+                            .graphicsLayer {
+                                scaleX = glowAnimation
+                                scaleY = glowAnimation
+                                alpha = glowAnimation
+                            }
+                    ) {
+                        Text(
+                            text = celebrationMessage,
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(24.dp)
+                        )
+                    }
+                }
+                
+                // Animated confetti particles
                 confettiParticles.forEach { particle ->
                     Box(
                         modifier = Modifier
@@ -839,6 +957,7 @@ if (isCorrect) {
                                 rotationZ = particle.rotation
                                 scaleX = particle.scale
                                 scaleY = particle.scale
+                                alpha = if (particle.y > 800f) 0f else 1f // fade out at bottom
                             }
                             .background(
                                 color = particle.color,
@@ -883,6 +1002,7 @@ if (isCorrect) {
                     contentDescription = "New Challenge",
                     modifier = Modifier.size(20.dp)
                 )
+            }
         }
     }
 
@@ -891,5 +1011,4 @@ if (isCorrect) {
             textToSpeechManager.shutdown()
         }
     }
-}
 } 

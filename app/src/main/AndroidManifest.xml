@@ -105,7 +105,7 @@
         <service
             android:name=".alarm.AlarmService"
             android:exported="false"
-            android:foregroundServiceType="mediaPlayback" />
+            android:foregroundServiceType="mediaPlayback|specialUse" />
             
         <provider
             android:name="androidx.startup.InitializationProvider"
