@@ -146,7 +146,6 @@ fun DelightfulFloatingActionButton(
     alarmCount: Int
 ) {
     val haptic = LocalHapticFeedback.current
-    val scope = rememberCoroutineScope()
     var isPressed by remember { mutableStateOf(false) }
     
     // Enhanced floating animation with more natural movement
@@ -198,7 +197,7 @@ fun DelightfulFloatingActionButton(
             onClick()
         },
         containerColor = MaterialTheme.colorScheme.primary,
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(24.dp),
         modifier = Modifier
             .graphicsLayer {
                 translationY = -floatAnimation
@@ -207,14 +206,15 @@ fun DelightfulFloatingActionButton(
                 rotationZ = if (alarmCount == 0) rotation else 0f
             }
             .shadow(
-                elevation = 16.dp,
-                spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
-                shape = RoundedCornerShape(20.dp)
+                elevation = 20.dp,
+                spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
+                shape = RoundedCornerShape(24.dp)
             )
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(if (alarmCount == 0) 12.dp else 0.dp)
+            horizontalArrangement = Arrangement.spacedBy(if (alarmCount == 0) 8.dp else 0.dp),
+            modifier = Modifier.padding(horizontal = if (alarmCount == 0) 16.dp else 8.dp)
         ) {
             // Enhanced icon with pulse animation
             Icon(
@@ -222,18 +222,19 @@ fun DelightfulFloatingActionButton(
                 contentDescription = "Add Alarm",
                 tint = MaterialTheme.colorScheme.onPrimary,
                 modifier = Modifier
-                    .size(if (alarmCount == 0) 32.dp else 28.dp)
+                    .size(if (alarmCount == 0) 28.dp else 24.dp)
                     .scale(iconPulse)
             )
             
-            // Enhanced text for first alarm
+            // Enhanced text for first alarm with better legibility
             if (alarmCount == 0) {
                 Text(
                     text = "Start",
                     color = MaterialTheme.colorScheme.onPrimary,
-                    fontWeight = FontWeight.ExtraBold,
+                    fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.titleMedium.copy(
-                        letterSpacing = 0.5.sp
+                        letterSpacing = 1.sp,
+                        fontSize = 16.sp
                     )
                 )
             }
@@ -650,10 +651,12 @@ fun DelightfulEmptyState(onAddAlarm: () -> Unit, modifier: Modifier = Modifier) 
         
         Text(
             text = "Create your first alarm and transform your mornings into something extraordinary. Every great day starts with the perfect wake-up call!",
-            style = MaterialTheme.typography.bodyLarge,
+            style = MaterialTheme.typography.bodyLarge.copy(
+                fontSize = 14.sp
+            ),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
-            modifier = Modifier.padding(horizontal = 32.dp)
+            modifier = Modifier.padding(horizontal = 24.dp)
         )
         
         Spacer(modifier = Modifier.height(32.dp))
@@ -675,37 +678,39 @@ fun DelightfulEmptyState(onAddAlarm: () -> Unit, modifier: Modifier = Modifier) 
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 onAddAlarm()
             },
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(24.dp),
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.primary
             ),
             modifier = Modifier
                 .scale(buttonScale)
                 .shadow(
-                    elevation = 12.dp,
-                    spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f),
-                    shape = RoundedCornerShape(20.dp)
+                    elevation = 16.dp,
+                    spotColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
+                    shape = RoundedCornerShape(24.dp)
                 )
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
             ) {
                 Icon(
                     Icons.Default.Add,
                     contentDescription = null,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(20.dp)
                 )
                 Text(
                     "Create My First Alarm",
-                    fontWeight = FontWeight.ExtraBold,
+                    fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.titleMedium.copy(
-                        letterSpacing = 0.5.sp
+                        letterSpacing = 1.sp,
+                        fontSize = 16.sp
                     )
                 )
                 Text(
                     "✨",
-                    fontSize = 18.sp
+                    fontSize = 16.sp
                 )
             }
         }
@@ -787,7 +792,7 @@ fun DelightfulAlarmItem(
         targetValue = 2f,
         animationSpec = infiniteRepeatable(
             animation = tween(
-                durationMillis = 3000 + (index * 200), // Varied timing
+                durationMillis = maxOf(3000 + (index * 200), 100), // Ensure minimum duration
                 easing = EaseInOutSine
             ),
             repeatMode = RepeatMode.Reverse
@@ -810,17 +815,13 @@ fun DelightfulAlarmItem(
     val celebrationRotation by rememberInfiniteTransition(label = "celebration").animateFloat(
         initialValue = -2f,
         targetValue = 2f,
-        animationSpec = if (alarm.enabled) {
-            infiniteRepeatable(
-                animation = tween(1000, easing = EaseInOutSine),
-                repeatMode = RepeatMode.Reverse
-            )
-        } else {
-            infiniteRepeatable(
-                animation = tween(0),
-                repeatMode = RepeatMode.Restart
-            )
-        },
+        animationSpec = infiniteRepeatable(
+            animation = tween(
+                durationMillis = if (alarm.enabled) 1000 else 100, // Prevent zero duration
+                easing = EaseInOutSine
+            ),
+            repeatMode = RepeatMode.Reverse
+        ),
         label = "celebration"
     )
     
@@ -888,10 +889,10 @@ fun DelightfulAlarmItemContent(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Animated alarm icon
+            // Animated alarm icon - smaller on narrow devices
             val iconScale by rememberInfiniteTransition(label = "icon").animateFloat(
                 initialValue = 1f,
                 targetValue = if (alarm.enabled) 1.1f else 1f,
@@ -904,48 +905,59 @@ fun DelightfulAlarmItemContent(
             
             Text(
                 text = if (alarm.enabled) "⏰" else "⏰",
-                fontSize = 28.sp,
+                fontSize = 24.sp,
                 modifier = Modifier
                     .background(
                         MaterialTheme.colorScheme.primary.copy(alpha = if (alarm.enabled) 0.2f else 0.1f),
                         CircleShape
                     )
-                    .padding(8.dp)
+                    .padding(6.dp)
                     .scale(iconScale)
             )
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.Bottom) {
+                Row(
+                    verticalAlignment = Alignment.Bottom,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
                     Text(
                         text = formattedTime,
-                        style = MaterialTheme.typography.headlineSmall,
+                        style = MaterialTheme.typography.headlineSmall.copy(
+                            fontSize = 20.sp
+                        ),
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.weight(1f)
                     )
                     if (timeFormat == TimeFormat.HOUR_12) {
                         Text(
                             text = period,
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontSize = 12.sp
+                            ),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(start = 4.dp, bottom = 4.dp)
+                            modifier = Modifier.padding(start = 4.dp, bottom = 2.dp)
                         )
                     }
                 }
                 
                 Text(
                     text = "${alarm.label ?: "Alarm"} • ${formatRepeatDays(alarm.repeatDays)}",
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontSize = 13.sp
+                    ),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth()
                 )
                 
-                // Show vibe information with animation
+                // Show vibe information with animation - more compact
                 val vibe = VibeDefaults.availableVibes.find { it.id == alarm.vibe }
                 if (vibe != null) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(top = 4.dp)
+                        modifier = Modifier.padding(top = 2.dp)
                     ) {
                         val vibeScale by rememberInfiniteTransition(label = "vibe").animateFloat(
                             initialValue = 0.9f,
@@ -959,7 +971,7 @@ fun DelightfulAlarmItemContent(
                         
                         Box(
                             modifier = Modifier
-                                .size(16.dp)
+                                .size(12.dp)
                                 .scale(vibeScale)
                                 .background(
                                     brush = Brush.linearGradient(
@@ -974,19 +986,25 @@ fun DelightfulAlarmItemContent(
                         ) {
                             Text(
                                 text = vibe.icon,
-                                fontSize = 8.sp
+                                fontSize = 6.sp
                             )
                         }
-                        Spacer(modifier = Modifier.width(6.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = vibe.name,
-                            style = MaterialTheme.typography.bodySmall,
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 11.sp
+                            ),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
             }
+            
+            Spacer(modifier = Modifier.width(8.dp))
             
             // Delightful toggle switch
             DelightfulSwitch(
@@ -1006,7 +1024,7 @@ fun DelightfulSwitch(
     
     // Thumb animation
     val thumbScale by animateFloatAsState(
-        targetValue = if (checked) 1.2f else 1f,
+        targetValue = if (checked) 1.1f else 1f,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessMedium
@@ -1030,7 +1048,9 @@ fun DelightfulSwitch(
             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
             onCheckedChange() 
         },
-        modifier = Modifier.scale(thumbScale),
+        modifier = Modifier
+            .scale(thumbScale)
+            .size(width = 48.dp, height = 32.dp),
         colors = SwitchDefaults.colors(
             checkedThumbColor = MaterialTheme.colorScheme.primary,
             checkedTrackColor = trackColor,
@@ -1240,17 +1260,17 @@ private fun DaySelectionRow(
             val annotated = buildAnnotatedString {
                 if (name.isNotEmpty()) {
                     withStyle(
-                        MaterialTheme.typography.displaySmall.copy(
+                        MaterialTheme.typography.headlineLarge.copy(
                             fontWeight = FontWeight.ExtraBold,
                             color = textColor
-                        ).toSpanStyle().copy(fontSize = 42.sp)
+                        ).toSpanStyle().copy(fontSize = 28.sp)
                     ) { append(name.first()) }
                     append(" ")
                     withStyle(
-                        MaterialTheme.typography.headlineMedium.copy(
+                        MaterialTheme.typography.titleLarge.copy(
                             fontWeight = FontWeight.SemiBold,
                             color = textColor
-                        ).toSpanStyle()
+                        ).toSpanStyle().copy(fontSize = 20.sp)
                     ) { append(name.drop(1)) }
                 }
             }

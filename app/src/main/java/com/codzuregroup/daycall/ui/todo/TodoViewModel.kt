@@ -325,11 +325,89 @@ class TodoViewModel(application: Application) : AndroidViewModel(application) {
             }
         )
     }
+    
+    fun getStreakData(): StreakData {
+        val todos = _uiState.value.todos
+        val completedTodos = todos.filter { it.isCompleted && it.completedAt != null }
+        
+        if (completedTodos.isEmpty()) {
+            return StreakData(currentStreak = 0, bestStreak = 0)
+        }
+        
+        // Sort by completion date, most recent first
+        val sortedCompleted = completedTodos.sortedByDescending { it.completedAt }
+        
+        // Calculate current streak
+        var currentStreak = 0
+        var bestStreak = 0
+        var tempStreak = 0
+        var currentDate = LocalDateTime.now().toLocalDate()
+        
+        // Check if today has completed todos
+        val todayCompleted = sortedCompleted.any { 
+            it.completedAt?.toLocalDate() == currentDate 
+        }
+        
+        if (todayCompleted) {
+            tempStreak = 1
+            currentDate = currentDate.minusDays(1)
+            
+            // Count consecutive days backwards
+            while (true) {
+                val hasCompletedForDate = sortedCompleted.any { 
+                    it.completedAt?.toLocalDate() == currentDate 
+                }
+                
+                if (hasCompletedForDate) {
+                    tempStreak++
+                    currentDate = currentDate.minusDays(1)
+                } else {
+                    break
+                }
+            }
+            currentStreak = tempStreak
+        }
+        
+        // Calculate best streak from all completed todos
+        val allDates = sortedCompleted.map { it.completedAt?.toLocalDate() }.distinct().filterNotNull().sorted()
+        var maxStreak = 0
+        tempStreak = 0
+        
+        for (i in 0 until allDates.size) {
+            if (i == 0) {
+                tempStreak = 1
+            } else {
+                val prevDate = allDates[i - 1]
+                val currDate = allDates[i]
+                if (prevDate != null && currDate != null && 
+                    prevDate.plusDays(1) == currDate) {
+                    tempStreak++
+                } else {
+                    tempStreak = 1
+                }
+            }
+            maxStreak = maxOf(maxStreak, tempStreak)
+        }
+        
+        bestStreak = maxStreak
+        
+        return StreakData(
+            currentStreak = currentStreak,
+            bestStreak = bestStreak
+        )
+    }
 }
 
 data class TodoStats(
     val total: Int,
     val completed: Int,
     val pending: Int,
-    val overdue: Int
+    val overdue: Int,
+    val completionRate: Float = if (total > 0) completed.toFloat() / total.toFloat() else 0f
+)
+
+data class StreakData(
+    val currentStreak: Int,
+    val bestStreak: Int,
+    val streakType: String = "daily"
 ) 

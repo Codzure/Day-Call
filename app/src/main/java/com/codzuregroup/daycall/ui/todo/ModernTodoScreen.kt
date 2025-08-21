@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -28,8 +29,8 @@ fun ModernTodoScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var currentFilter by remember { mutableStateOf(TodoFilter.ALL) }
     
-    // Mock data for demonstration - in real app this would come from viewModel
-    val streakData = remember { StreakData(currentStreak = 5, bestStreak = 12) }
+    // Get real streak data from viewModel - reactive to changes
+    val streakData by remember { derivedStateOf { viewModel.getStreakData() } }
     val todayProgress = remember { 
         if (uiState.todos.isEmpty()) 0f 
         else uiState.todos.count { it.isCompleted }.toFloat() / uiState.todos.size.toFloat()

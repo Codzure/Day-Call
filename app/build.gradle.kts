@@ -8,8 +8,8 @@ plugins {
 }
 
 // Version configuration
-val appVersionCode = 10002
-val appVersionName = "1.0.2"
+val appVersionCode = 10003
+val appVersionName = "1.0.3"
 val buildNumber = System.getenv("BUILD_NUMBER")?.toIntOrNull() ?: 1
 val gitCommitHash = System.getenv("GIT_COMMIT_HASH") ?: "dev"
 
@@ -79,10 +79,12 @@ android {
             isMinifyEnabled = false
             isShrinkResources = false
             
-            // Debug-specific configurations
-            buildConfigField("boolean", "ENABLE_LOGGING", "true")
+            // Debug-specific configurations - reduced logging for less noise
+            buildConfigField("boolean", "ENABLE_LOGGING", "false")
             buildConfigField("boolean", "ENABLE_CRASH_REPORTING", "false")
             buildConfigField("String", "API_BASE_URL", "\"https://api-dev.daycall.com\"")
+            buildConfigField("boolean", "ENABLE_VERBOSE_LOGGING", "false")
+            buildConfigField("boolean", "ENABLE_DEBUG_UI", "false")
         }
         
         release {
@@ -100,6 +102,41 @@ android {
             buildConfigField("boolean", "ENABLE_LOGGING", "false")
             buildConfigField("boolean", "ENABLE_CRASH_REPORTING", "true")
             buildConfigField("String", "API_BASE_URL", "\"https://api.daycall.com\"")
+            
+            // App size optimization
+            buildConfigField("boolean", "ENABLE_DEBUG_FEATURES", "false")
+            buildConfigField("boolean", "ENABLE_ANALYTICS", "true")
+            buildConfigField("boolean", "ENABLE_CRASH_LOGGING", "true")
+            
+            // Ultra-optimization for size
+            buildConfigField("boolean", "ENABLE_VERBOSE_LOGGING", "false")
+            buildConfigField("boolean", "ENABLE_PERFORMANCE_MONITORING", "false")
+            buildConfigField("boolean", "ENABLE_DEBUG_UI", "false")
+        }
+        
+        // Ultra-optimized release for minimal size
+        create("ultraRelease") {
+            initWith(getByName("release"))
+            versionNameSuffix = "-ultra"
+            
+            // Maximum optimization
+            isMinifyEnabled = true
+            isShrinkResources = true
+            
+            // Additional ProGuard rules for ultra-optimization
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+                "proguard-rules-ultra.pro"
+            )
+            
+            // Ultra size optimization
+            buildConfigField("boolean", "ENABLE_ANALYTICS", "false")
+            buildConfigField("boolean", "ENABLE_CRASH_LOGGING", "false")
+            buildConfigField("boolean", "ENABLE_DEBUG_FEATURES", "false")
+            buildConfigField("boolean", "ENABLE_VERBOSE_LOGGING", "false")
+            buildConfigField("boolean", "ENABLE_PERFORMANCE_MONITORING", "false")
+            buildConfigField("boolean", "ENABLE_DEBUG_UI", "false")
         }
         
         // Internal testing build
@@ -149,6 +186,8 @@ android {
         isCoreLibraryDesugaringEnabled = true
     }
     
+
+    
     kotlinOptions {
         jvmTarget = "11"
     }
@@ -156,6 +195,11 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+        // Disable unused features for size optimization
+        aidl = false
+        renderScript = false
+        resValues = false
+        shaders = false
     }
 
     testOptions {
@@ -191,7 +235,19 @@ configurations.all {
     resolutionStrategy {
         force("org.jetbrains:annotations:23.0.0")
         exclude(group = "com.intellij", module = "annotations")
+        
+        // Exclude unnecessary dependencies for size optimization
+        exclude(group = "org.jetbrains.kotlin", module = "kotlin-stdlib-jdk7")
+        exclude(group = "org.jetbrains.kotlin", module = "kotlin-stdlib-jdk8")
     }
+    
+    // Exclude unnecessary dependencies
+    exclude(group = "androidx.legacy", module = "legacy-support-v4")
+    exclude(group = "androidx.legacy", module = "legacy-support-v13")
+    exclude(group = "androidx.appcompat", module = "appcompat")
+    exclude(group = "androidx.recyclerview", module = "recyclerview")
+    exclude(group = "androidx.cardview", module = "cardview")
+    exclude(group = "androidx.gridlayout", module = "gridlayout")
 }
 
 dependencies {

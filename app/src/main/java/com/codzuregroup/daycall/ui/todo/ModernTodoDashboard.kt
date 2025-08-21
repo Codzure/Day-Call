@@ -22,6 +22,7 @@ import kotlin.math.cos
 import kotlin.math.sin
 import com.codzuregroup.daycall.ui.components.DayCallCard
 
+
 @Composable
 fun ModernTodoDashboard(
     stats: TodoStats,
@@ -290,8 +291,3 @@ private fun getGreeting(): String {
     return com.codzuregroup.daycall.utils.TimeBasedMessaging.getGreeting()
 }
 
-data class StreakData(
-    val currentStreak: Int,
-    val bestStreak: Int,
-    val streakType: String = "daily"
-)

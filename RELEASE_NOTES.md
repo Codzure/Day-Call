@@ -106,6 +106,9 @@
 - Fixed memory leaks and crashes
 - Fixed accessibility issues
 - Fixed Kotlin incompatibility with Android 15 (removeFirst/removeLast functions)
+- Improved alarm card layout for narrow devices and better responsiveness
+- Enhanced start button legibility and visual appeal
+- Fixed hardcoded streak values in todo screen - now calculates real streaks from completed tasks
 
 ---
 
